@@ -35,16 +35,16 @@
 
 ### Checklist
 
-[X] Gradle проект создан через IntelliJ IDEA (File → New → Project)
-[X] build.gradle обновлен (JUnit 5.11, AssertJ 3.26.3)
-[X] Lead.java создан в ru.mentee.power.crm.domain
-[X] Все 5 полей объявлены как private
-[X] Конструктор принимает 5 параметров
-[X] Getters для всех полей реализованы
-[X] toString() переопределен с @Override
-[X] LeadTest создан с минимум 5 тестами
-[X] Тесты проходят (Ctrl+Ctrl → gradle test)
-[X] Coverage ≥80% (JaCoCo отчет проверен)
+- [X] Gradle проект создан через IntelliJ IDEA (File → New → Project)
+- [X] build.gradle обновлен (JUnit 5.11, AssertJ 3.26.3)
+- [X] Lead.java создан в ru.mentee.power.crm.domain
+- [X] Все 5 полей объявлены как private
+- [X] Конструктор принимает 5 параметров
+- [X] Getters для всех полей реализованы
+- [X] toString() переопределен с @Override
+- [X] LeadTest создан с минимум 5 тестами
+- [X] Тесты проходят (Ctrl+Ctrl → gradle test)
+- [X] Coverage ≥80% (JaCoCo отчет проверен)
 
 ### Результат само-ревью BCORE-1
 
