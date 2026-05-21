@@ -97,3 +97,8 @@ jacocoTestCoverageVerification {
 check {
     dependsOn jacocoTestCoverageVerification
 }
+
+// Для вызова ./gradlew ci вместо огромной строки
+tasks.register('ci') {
+    dependsOn 'clean', 'checkstyleMain', 'test', 'jacocoTestCoverageVerification', 'build'
+}
