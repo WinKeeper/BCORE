@@ -9,8 +9,9 @@ group = 'ru.mentee.power'
 version = '1.0-SNAPSHOT'
 
 ext {
-    junitVersion = '5.11.0'
-    assertjVersion = '3.27.3'
+    junitVersion = '5.11.0' // по заданию BCORE-1
+    assertjVersion = '3.26.3' // по заданию BCORE-1
+//    assertjVersion = '3.27.3'
 }
 
 java {
@@ -32,7 +33,6 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter"
     testImplementation "org.assertj:assertj-core:${assertjVersion}"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
-
 }
 
 // Настройка тестов
