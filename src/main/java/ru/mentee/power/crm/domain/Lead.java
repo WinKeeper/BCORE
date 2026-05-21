@@ -36,7 +36,8 @@ public class Lead {
   }
 
   @Override
-  public String toString(){
-    return "Contact{id='" + id + "', email='" + email + "', phone='" + phone + "', company='" + company + "', status='" + status + "'}";
+  public String toString() {
+    return "Lead info : {id='%s', email='%s', phone='%s', company='%s', status='%s'}"
+        .formatted(id, email, phone, company, status);
   }
 }

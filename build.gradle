@@ -35,7 +35,6 @@ dependencies {
 
 }
 
-
 // Настройка тестов
 test {
     useJUnitPlatform()
@@ -88,7 +87,7 @@ jacocoTestCoverageVerification {
 //            ]
 
             limit {
-//                minimum = 0.80  // 80% покрытия инструкций
+                minimum = 0.80  // 80% покрытия инструкций
             }
         }
     }
