@@ -50,6 +50,20 @@
 
 Ошибок не обнаружено согласно Code Review Checklist раздела.
 
+## BCORE-2: Массив Lead[] и дедупликация — От одного объекта к коллекции
+
+### Инсайты BCORE-2
+
+- массив с простыми типами данных инициализируется с '0';
+- массив объектов инициализируется с 'null';
+- надо привыкать использовать for each;
+- при вызове метода ```methodName()``` эквивалентно ```this.methodName()``` со ссылкой на текущий объект класса;
+- AI хорошо помогает в плане объяснения в контексте самого проекта.
+
+### Результат само-ревью BCORE-2
+
+Ошибок не обнаружено согласно Code Review Checklist раздела.
+
 ## Code Review Checklist
 
 ### Функциональность
@@ -107,9 +121,11 @@
 
 #### CRM (Customer Relationship Management)
 
-**Определение:** A CRM system is software designed to manage a company's interactions with current and potential customers, including storing data, tracking communication, and automating sales processes.
+**Определение:** A CRM system is software designed to manage a company's interactions with current and potential
+customers, including storing data, tracking communication, and automating sales processes.
 
-**Контекст использования:** CRM (например, Salesforce, HubSpot) используется для управления клиентской базой, отслеживания сделок, взаимодействий и воронки продаж.
+**Контекст использования:** CRM (например, Salesforce, HubSpot) используется для управления клиентской базой,
+отслеживания сделок, взаимодействий и воронки продаж.
 
 **Пример:** Менеджер добавляет нового клиента в CRM, фиксирует звонок и переводит сделку на следующий этап воронки.
 
@@ -119,9 +135,11 @@
 
 #### ERP (Enterprise Resource Planning)
 
-**Определение:** An ERP system is software that integrates core business processes such as finance, inventory, and operations into a unified system.
+**Определение:** An ERP system is software that integrates core business processes such as finance, inventory, and
+operations into a unified system.
 
-**Контекст использования:** ERP используется для централизованного хранения и обработки данных разных отделов через единый backend и базу данных.
+**Контекст использования:** ERP используется для централизованного хранения и обработки данных разных отделов через
+единый backend и базу данных.
 
 **Пример:** Разработчик реализует сервис для обработки заказов, который обновляет складские остатки и финансовые записи.
 
