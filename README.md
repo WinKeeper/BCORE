@@ -42,7 +42,7 @@
 - [X] Конструктор принимает 5 параметров
 - [X] Getters для всех полей реализованы
 - [X] toString() переопределен с @Override
-- [X] LeadTest создан с минимум 5 тестами
+- [X] LeadTest создан с минимумом 5 тестами
 - [X] Тесты проходят (Ctrl+Ctrl → gradle test)
 - [X] Coverage ≥80% (JaCoCo отчет проверен)
 
@@ -63,6 +63,171 @@
 ### Результат само-ревью BCORE-2
 
 Ошибок не обнаружено согласно Code Review Checklist раздела.
+
+## BCORE-3: Контракт equals/hashCode — Правильное сравнение объектов
+
+### Контракт equals(): 5 обязательных свойств
+
+Метод `equals()` должен соблюдать **контракт** — набор правил, которые гарантируют корректную работу в Java коллекциях.
+Эти правила описаны в JavaDoc класса Object и являются частью спецификации Java.
+
+**Свойство 1: Рефлексивность (Reflexive)** Любой объект равен сам себе: `x.equals(x)` всегда должен возвращать `true`.
+
+```java
+Lead lead = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+lead.
+
+equals(lead);  // Должно быть true
+```
+
+Нарушение рефлексивности ломает коллекции: HashSet может не найти объект, который только что добавили.
+
+**Свойство 2: Симметричность (Symmetric)** Если `x.equals(y)` возвращает `true`, то `y.equals(x)` тоже должен возвращать
+`true`. Порядок сравнения не важен.
+
+```java
+Lead lead1 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+Lead lead2 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+
+if(lead1.
+
+equals(lead2)){
+    assert lead2.
+
+equals(lead1);  // Должно быть true
+}
+```
+
+**Свойство 3: Транзитивность (Transitive)** Если `x.equals(y)` и `y.equals(z)`, то `x.equals(z)` тоже должен быть
+`true`. Цепочка равенства сохраняется.
+
+```java
+Lead lead1 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+Lead lead2 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+Lead lead3 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+
+if(lead1.
+
+equals(lead2) &&lead2.
+
+equals(lead3)){
+    assert lead1.
+
+equals(lead3);  // Должно быть true
+}
+```
+
+Нарушение транзитивности ведет к нелогичным результатам: объект равен A и B, но A не равен B.
+
+**Свойство 4: Консистентность (Consistent)** Несколько вызовов `x.equals(y)` должны возвращать одинаковый результат,
+если данные объектов не изменились.
+
+```java
+Lead lead1 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+Lead lead2 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+
+boolean result1 = lead1.equals(lead2);
+boolean result2 = lead1.equals(lead2);
+assert result1 ==result2;  // Должен быть одинаковым
+```
+
+Нарушение консистентности: equals() зависит от текущего времени или случайного значения — это ошибка.
+
+**Свойство 5: null-безопасность (Non-nullity)** Любой объект не равен `null`: `x.equals(null)` всегда должен возвращать
+`false`, никогда не выбрасывать NullPointerException.
+
+```java
+Lead lead = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+lead.
+
+equals(null);  // Должно быть false, не NPE!
+```
+
+Если equals() не проверяет null, вызов `lead.equals(null)` выбросит NPE при попытке привести null к типу Lead — это
+нарушение контракта.
+
+**Главное правило:** Если переопределяешь `equals()`, **обязательно** переопределяй `hashCode()` тоже. Иначе объекты не
+будут корректно работать в HashMap, HashSet, Hashtable.
+
+**Контракт hashCode():**
+
+1. Если `x.equals(y)` возвращает `true`, то `x.hashCode() == y.hashCode()` **обязательно** должно быть `true`
+2. Если `x.equals(y)` возвращает `false`, `x.hashCode()` и `y.hashCode()` **могут** быть одинаковыми или разными (это
+   называется "коллизия хешей")
+
+Пример нарушения: переопределили equals() по id, но не переопределили hashCode():
+
+```java
+class Lead {
+  private String id;
+  // ... остальные поля ...
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Lead lead = (Lead) o;
+    return Objects.equals(id, lead.id);
+  }
+
+  // НЕТ переопределенного hashCode()!
+}
+
+Lead lead1 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+Lead lead2 = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+
+lead1.
+
+equals(lead2);  // true (equals переопределен)
+lead1.
+
+hashCode() ==lead2.
+
+hashCode();  // false! (hashCode стандартный, основан на адресе)
+
+// Использование в HashMap
+Map<Lead, String> map = new HashMap<>();
+map.
+
+put(lead1, "Status A");
+map.
+
+get(lead2);  // null! HashMap не нашел объект, потому что hashCode разные
+```
+
+HashMap использует hashCode() для быстрого поиска "корзины" (bucket), а затем equals() для точного сравнения объектов в
+корзине. Если hashCode() разные, HashMap даже не вызовет equals() — сразу решит что объекты разные.
+
+**Правильная реализация:**
+
+```java
+
+@Override
+public int hashCode() {
+  return Objects.hash(id);  // Хеш вычисляется по тем же полям, что и equals
+}
+```
+
+Теперь два Lead с одинаковым id будут иметь одинаковый hashCode:
+
+```java
+lead1.hashCode() ==lead2.
+
+hashCode();  // true
+map.
+
+get(lead2);  // ⟪§⟫ - HashMap нашел объект!
+```
+
+### Инсайты BCORE-3
+
+- всё время забываю, что при вызове метода в классе он ссылается сам на себя
+
+### Результат само-ревью BCORE-3
+
+Ошибок не обнаружено согласно Code Review Checklist раздела.
+
+---
 
 ## Code Review Checklist
 
