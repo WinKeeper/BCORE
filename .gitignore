@@ -39,3 +39,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Open Code ###
+# ? Надо ли сюда добавить AGENTS.md и opencode.json?
