@@ -1,5 +1,8 @@
 package ru.mentee.power.crm.storage;
 
+import java.util.Objects;
+import java.util.UUID;
+
 import ru.mentee.power.crm.domain.Lead;
 
 public class LeadStorage {
@@ -48,6 +51,15 @@ public class LeadStorage {
       }
     }
     return count;
+  }
+
+  public Lead findById(UUID id) {
+    for (Lead lead : leads) {
+      if (lead != null && Objects.equals(lead.getId(), id)) {
+        return lead;
+      }
+    }
+    return null;
   }
 
 }
