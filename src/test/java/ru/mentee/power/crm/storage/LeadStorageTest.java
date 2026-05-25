@@ -81,4 +81,32 @@ class LeadStorageTest {
     assertThat(result).hasSize(2);
     assertThat(result).containsExactly(firstLead, secondLead);
   }
+
+  @Test
+  void shouldReturnLeadWhenFindByIdWithExistingId() {
+    // Given
+    LeadStorage storage = new LeadStorage();
+    UUID id = UUID.randomUUID();
+    Lead lead = new Lead(id, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+    storage.add(lead);
+
+    // When
+    Lead found = storage.findById(id);
+
+    // Then
+    assertThat(found).isEqualTo(lead);
+  }
+
+  @Test
+  void shouldReturnNullWhenFindByIdWithNonExistentId() {
+    // Given
+    LeadStorage storage = new LeadStorage();
+    storage.add(new Lead(UUID.randomUUID(), "ivan@mail.ru", "+7123", "TechCorp", "NEW"));
+
+    // When
+    Lead found = storage.findById(UUID.randomUUID());
+
+    // Then
+    assertThat(found).isNull();
+  }
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import ru.mentee.power.crm.storage.LeadStorage;
 
 class LeadTest {
 
@@ -79,4 +80,24 @@ class LeadTest {
     assertThat(lead.toString()).isEqualTo(expected);
 
   }
+
+  @Test
+  void shouldPreventStringConfusionWhenUsingUuid() {
+    UUID id = UUID.randomUUID();
+    Lead lead = new Lead(id, "a@b.com", "+7000", "Co", "NEW");
+
+    LeadStorage storage = new LeadStorage();
+    storage.add(lead);
+
+    // Компилятор не даст передать String вместо UUID:
+    // storage.findById("some-string");  // ❌ compilation error
+
+    // Только UUID:
+    Lead found = storage.findById(id);
+    assertThat(found).isEqualTo(lead);
+
+    // Другой UUID — вернёт null (типы не перепутать):
+    assertThat(storage.findById(UUID.randomUUID())).isNull();
+  }
+
 }
