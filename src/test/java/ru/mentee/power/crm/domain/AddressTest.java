@@ -27,6 +27,13 @@ class AddressTest {
   @Test
   void shouldThrowExceptionWhenCityIsNull() {
     assertThatIllegalArgumentException().isThrownBy(() -> new Address(null, "Декабристов",
-        "624000")).withMessage("City must not be null");
+        "624000")).withMessage("City must not be null or blank");
+  }
+
+  @Test
+  void shouldThrowExceptionWhenZipIsBlank() {
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> new Address("Москва", "Декабристов", ""))
+        .withMessage("Zip must not be null or blank");
   }
 }
