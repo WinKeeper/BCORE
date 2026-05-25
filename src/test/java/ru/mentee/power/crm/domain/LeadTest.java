@@ -2,6 +2,8 @@ package ru.mentee.power.crm.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 
 class LeadTest {
@@ -9,19 +11,17 @@ class LeadTest {
   @Test
   void shouldReturnIdWhenGetIdCallen() {
     // Given
-    Lead lead = new Lead("5", "alibaba@gmail.com", "12345", "alibaba", "NEW");
-
-    // When
-    String id = lead.getId();
+    UUID uuid = UUID.randomUUID();
+    Lead lead = new Lead(uuid, "alibaba@gmail.com", "12345", "alibaba", "NEW");
 
     // Then
-    assertThat(id).isEqualTo("5");
+    assertThat(lead.getId()).isEqualTo(uuid);
   }
 
   @Test
   void shouldReturnEmailWhenGetEmailCallen() {
     // Given
-    Lead lead = new Lead("5", "alibaba@gmail.com", "12345", "alibaba", "NEW");
+    Lead lead = new Lead(UUID.randomUUID(), "alibaba@gmail.com", "12345", "alibaba", "NEW");
 
     // When
     String email = lead.getEmail();
@@ -33,7 +33,7 @@ class LeadTest {
   @Test
   void shouldReturnPhoneWhenGetPhoneCallen() {
     // Given
-    Lead lead = new Lead("5", "alibaba@gmail.com", "12345", "alibaba", "NEW");
+    Lead lead = new Lead(UUID.randomUUID(), "alibaba@gmail.com", "12345", "alibaba", "NEW");
 
     // When
     String phone = lead.getPhone();
@@ -45,7 +45,7 @@ class LeadTest {
   @Test
   void shouldReturnCompanyWhenGetCompanyCallen() {
     // Given
-    Lead lead = new Lead("5", "alibaba@gmail.com", "12345", "alibaba", "NEW");
+    Lead lead = new Lead(UUID.randomUUID(), "alibaba@gmail.com", "12345", "alibaba", "NEW");
 
     // When
     String company = lead.getCompany();
@@ -57,7 +57,7 @@ class LeadTest {
   @Test
   void shouldReturnStatusWhenGetStatusCallen() {
     // Given
-    Lead lead = new Lead("5", "alibaba@gmail.com", "12345", "alibaba", "NEW");
+    Lead lead = new Lead(UUID.randomUUID(), "alibaba@gmail.com", "12345", "alibaba", "NEW");
 
     // When
     String status = lead.getStatus();
@@ -69,13 +69,14 @@ class LeadTest {
   @Test
   void shouldReturnFormattedStringWhenToStringCalled() {
     // Given
-    Lead lead = new Lead("5", "alibaba@gmail.com", "12345", "alibaba", "NEW");
-
-    // When
-    String leadInfo = lead.toString();
+    UUID uuid = UUID.randomUUID();
+    Lead lead = new Lead(uuid, "alibaba@gmail.com", "12345", "alibaba", "NEW");
 
     // Then
-    assertThat(leadInfo).isEqualTo("Lead info : {id='5', email='alibaba@gmail.com', phone='12345', "
-        + "company='alibaba', status='NEW'}");
+    String expected = ("Lead info : {id='%s', email='alibaba@gmail.com', phone='12345', " +
+        "company='alibaba', status='NEW'}")
+        .formatted(uuid);
+    assertThat(lead.toString()).isEqualTo(expected);
+
   }
 }

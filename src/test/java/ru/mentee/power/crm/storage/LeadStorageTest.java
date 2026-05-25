@@ -3,6 +3,8 @@ package ru.mentee.power.crm.storage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 import ru.mentee.power.crm.domain.Lead;
 
@@ -12,7 +14,8 @@ class LeadStorageTest {
   void shouldAddLeadWhenLeadIsUnique() {
     // Given
     LeadStorage storage = new LeadStorage();
-    Lead uniqueLead = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+    UUID id = UUID.randomUUID();
+    Lead uniqueLead = new Lead(id, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
 
     // When
     boolean added = storage.add(uniqueLead);
@@ -27,8 +30,10 @@ class LeadStorageTest {
   void shouldRejectDuplicateWhenEmailAlreadyExists() {
     // Given
     LeadStorage storage = new LeadStorage();
-    Lead existingLead = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
-    Lead duplicateLead = new Lead("2", "ivan@mail.ru", "+7456", "Other", "NEW");
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+    Lead existingLead = new Lead(id1, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+    Lead duplicateLead = new Lead(id2, "ivan@mail.ru", "+7456", "Other", "NEW");
     storage.add(existingLead);
 
     // When
@@ -45,12 +50,12 @@ class LeadStorageTest {
     // Given: Заполни хранилище 100 лидами
     LeadStorage storage = new LeadStorage();
     for (int index = 0; index < 100; index++) {
-      storage.add(new Lead(String.valueOf(index), "lead" + index + "@mail.ru",
+      storage.add(new Lead(UUID.randomUUID(), "lead" + index + "@mail.ru",
           "+7000", "Company", "NEW"));
     }
 
     // When + Then: 101-й лид должен выбросить исключение
-    Lead hundredFirstLead = new Lead("101", "lead101@mail.ru",
+    Lead hundredFirstLead = new Lead(UUID.randomUUID(), "lead101@mail.ru",
         "+7001", "Company", "NEW");
 
     assertThatThrownBy(() -> storage.add(hundredFirstLead))
@@ -62,8 +67,10 @@ class LeadStorageTest {
   void shouldReturnOnlyAddedLeadsWhenFindAllCalled() {
     // Given
     LeadStorage storage = new LeadStorage();
-    Lead firstLead = new Lead("1", "ivan@mail.ru", "+7123", "TechCorp", "NEW");
-    Lead secondLead = new Lead("2", "maria@startup.io", "+7456", "StartupLab", "NEW");
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+    Lead firstLead = new Lead(id1, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+    Lead secondLead = new Lead(id2, "maria@startup.io", "+7456", "StartupLab", "NEW");
     storage.add(firstLead);
     storage.add(secondLead);
 
