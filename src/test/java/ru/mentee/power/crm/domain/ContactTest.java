@@ -12,8 +12,8 @@ class ContactTest {
     Contact contact = new Contact("Rabbit", "White", "white_rabbit@gmail.com");
 
     // Then
-    assertThat(contact).extracting(Contact::getFirstName, Contact::getLastName,
-        Contact::getEmail).containsExactly("Rabbit", "White", "white_rabbit@gmail.com");
+    assertThat(contact).extracting(Contact::firstName, Contact::lastName,
+        Contact::email).containsExactly("Rabbit", "White", "white_rabbit@gmail.com");
 
   }
 
