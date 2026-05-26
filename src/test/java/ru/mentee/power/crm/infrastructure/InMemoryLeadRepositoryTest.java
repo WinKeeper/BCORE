@@ -1,7 +1,6 @@
 package ru.mentee.power.crm.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.UUID;
@@ -47,11 +46,10 @@ class InMemoryLeadRepositoryTest {
         "Oak", "628400")), "Ez", "NEW");
 
     repository.add(firstLead);
+    repository.add(secondLead);  // дубликат — игнорируется
 
     // Then
-    assertThatThrownBy(() -> repository.add(secondLead))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("already exists");
+    assertThat(repository.findAll()).hasSize(1);
   }
 
   @Test
@@ -123,7 +121,7 @@ class InMemoryLeadRepositoryTest {
     firstCall.clear();
 
     assertThat(repository.findAll()).hasSize(1);
-    assertThat(repository.findAll().get(0)).isEqualTo(lead);
+    assertThat(repository.findAll().getFirst()).isEqualTo(lead);
   }
 
 }

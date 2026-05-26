@@ -18,7 +18,7 @@ public class InMemoryLeadRepository implements Repository<Lead> {
       throw new IllegalArgumentException("Entity must not be null");
     }
     if (storage.contains(entity)) {
-      throw new IllegalStateException("Lead with id " + entity.id() + " already exists");
+      return;
     }
     storage.add(entity);
   }
