@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                  |---|---|---|
+                        |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,14 +526,94 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                  |---|---|---|
+                        |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
    | **`LeadService`** | ❌ | **✅ Без изменений** |
    | **Тесты** | ❌ | **✅ Продолжают использовать InMemory** |
 
+### Геттеры для storage: internal state vs data holder
+
+`private final List<Lead> storage` — **internal state**. Геттер не нужен. Весь доступ к данным уже предоставлен через
+публичные методы `add`, `remove`, `findById`, `findAll`.
+
+**Чем опасен геттер:**
+
+```java
+// Без геттера — всё под контролем:
+repository.add(lead);          // проверка на null + дубликат
+repository.
+
+findAll();           // defensive copy
+
+// С геттером — можно обойти все проверки:
+repository.
+
+getStorage().
+
+add(lead);         // null не проверен, дубликат проскочит
+repository.
+
+getStorage().
+
+clear();            // все данные потеряны без remove()
+```
+
+**Вывод:** `InMemoryLeadRepository` — сервис, не data holder. `findAll()` с defensive copy — единственный правильный
+способ доступа.
+
+### Типобезопасность через generics
+
+`Repository<T>` — параметризованный интерфейс. Тип данных фиксируется на этапе компиляции.
+
+**Без generics — ошибка в runtime:**
+
+```java
+public interface Repository {
+  void add(Object entity);
+}
+
+Repository repo = new InMemoryLeadRepository();
+repo.
+
+add("not a lead");       // компилируется!
+((Lead)repo.
+
+findById(id));   // ClassCastException в runtime
+```
+
+**С generics — ошибка при компиляции:**
+
+```java
+public interface Repository<T> {
+  void add(T entity);
+}
+
+Repository<Lead> repo = new InMemoryLeadRepository();
+repo.
+
+add("not a lead");       // ❌ не скомпилируется
+repo.
+
+add(new Lead(...));      // ✅ только Lead
+```
+
+**Что даёт:**
+
+| Без `T`                      | С `Repository<T>`              |
+|------------------------------|--------------------------------|
+| `Object` entity — любой тип  | `T entity` — только нужный тип |
+| Нужен явный каст `(Lead)`    | Каст не нужен                  |
+| Ошибка в runtime             | Ошибка **при компиляции**      |
+| `findAll()` → `List` (чего?) | `findAll()` → `List<T>`        |
+
+**Аналогия:** парковка без шлагбаума пропустит велосипед (`ClassCastException` при выезде). Парковка `Parking<Car>` —
+только машины, шлагбаум на въезде.
+
 ---
+
+## Code Review Checklist
 
 ### Функциональность
 
