@@ -414,9 +414,126 @@ stream), а моки просто возвращают stub данные. Ког
 **equals/hashCode — не нужны.** `InMemoryLeadRepository` — сервис, его экземпляры не сравнивают и не кладут в HashMap.
 `equals` от Object (по ссылке) достаточно.
 
----
+### Aggregate Root (Lead) + Value Objects (Contact, Address)
 
-## Code Review Checklist
+Lead — **корень агрегата** (Aggregate Root): имеет UUID, управляет жизненным циклом. Contact и Address — **Value Objects
+**: не имеют самостоятельного ID, immutable, доступны только через Lead.
+
+#### Бытовые аналогии
+
+**1. Человек и его паспорт**
+
+Lead — человек (уникальный ID, существует сам по себе). Contact — страница с адресом прописки (не существует без
+паспорта). Address — конкретный адрес на странице.
+
+```
+Человек (Lead)
+  └── Страница с адресом (Contact)
+        └── Город, улица, индекс (Address)
+```
+
+**2. Телефонная книга**
+
+Контакт — корень. Номер телефона — значение (не существует без контакта). Адрес — значение.
+
+#### Почему это важно
+
+Без этой архитектуры можно создать `ContactRepository` и сохранить `Contact` без `Lead`:
+
+- Contact хранит email лида — без Lead непонятно, кому он принадлежит
+- При удалении Lead его Contact останется сиротой
+- Изменение Contact через `contactRepository.save()` минует валидацию Lead
+
+#### Схема
+
+```
+Repository:          LeadRepository  (только корень!)
+                        │
+Aggregate Root:       Lead  (UUID, жизненный цикл)
+                      / \
+Value Objects:   Contact  Address  (без ID, immutable)
+                   /
+               Address  (вложенный)
+```
+
+Граница: всё внутри Lead — целостная единица. Изменение Contact = новый Lead. Удаление Lead = удаление Contact и
+Address.
+
+### Почему бизнес-код зависит от интерфейса Repository<T>, а не от InMemoryLeadRepository?
+
+**Dependency Inversion Principle (DIP):** высокоуровневый код не должен зависеть от низкоуровневых реализаций. Оба
+должны зависеть от абстракций (интерфейсов).
+
+#### Пример из проекта
+
+Без DIP — жёсткая привязка:
+
+```java
+public class LeadService {
+  private final InMemoryLeadRepository repository;  // зависит от конкретной реализации
+}
+```
+
+С DIP — через интерфейс:
+
+```java
+public class LeadService {
+  private final Repository<Lead> repository;  // зависит от абстракции
+}
+```
+
+**Что это даёт:**
+
+1. **Замена реализации без правки бизнес-кода**
+    - Тесты: `new InMemoryLeadRepository()` — быстро, без БД
+    - Production: `new PostgresLeadRepository()` — реальная БД
+    - Код `LeadService` при этом **не меняется**
+
+2. **Бытовой пример: зарядка для телефона**
+
+   | Компонент | В IT | Аналогия |
+                  |---|---|---|
+   | Интерфейс | `Repository<T>` | USB-C разъём |
+   | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
+   | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
+   | Потребитель | `LeadService` | Телефон |
+
+   Телефону (сервису) всё равно, откуда идёт энергия — из розетки или PowerBank. Важно, что разъём USB-C (интерфейс)
+   один и тот же.
+
+   Аналогично `LeadService` не знает и не должен знать, хранятся лиды в памяти или в PostgreSQL. Он знает только
+   контракт: `add`, `remove`, `findById`, `findAll`.
+
+3. **Тестирование**
+
+   ```java
+   // Тест использует InMemory — быстро, без БД, без моков
+   class LeadServiceTest {
+       private Repository<Lead> repository = new InMemoryLeadRepository();
+       private LeadService service = new LeadService(repository);
+
+       @Test
+       void shouldDoSomething() {
+           service.doSomething();
+           assertThat(repository.findAll()).hasSize(1);
+       }
+   }
+   ```
+
+   Если бы сервис зависел от `InMemoryLeadRepository`, в тестах нельзя было бы подменить реализацию. С интерфейсом —
+   можно.
+
+4. **Что меняется при переключении на БД**
+
+   | Компонент | Меняется | Не меняется |
+                  |---|---|---|
+   | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
+   | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
+   | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
+   | **`LeadService`** | ❌ | **✅ Без изменений** |
+   | **Тесты** | ❌ | **✅ Продолжают использовать InMemory** |
+
+---
 
 ### Функциональность
 
