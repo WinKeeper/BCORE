@@ -14,7 +14,7 @@ public class LeadStorage {
     }
 
     for (Lead value : leads) {
-      if (value != null && value.getEmail().equals(lead.getEmail())) {
+      if (value != null && value.contact().email().equals(lead.contact().email())) {
         return false;
       }
     }
@@ -55,7 +55,7 @@ public class LeadStorage {
 
   public Lead findById(UUID id) {
     for (Lead lead : leads) {
-      if (lead != null && Objects.equals(lead.getId(), id)) {
+      if (lead != null && Objects.equals(lead.id(), id)) {
         return lead;
       }
     }

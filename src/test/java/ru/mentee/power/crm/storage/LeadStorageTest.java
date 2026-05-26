@@ -6,16 +6,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import ru.mentee.power.crm.domain.Address;
+import ru.mentee.power.crm.domain.Contact;
 import ru.mentee.power.crm.domain.Lead;
 
 class LeadStorageTest {
+
+  // Чтобы каждый раз не прописывать contact в каждом тесте вынес наверх
+  private static Contact contact(String email, String phone) {
+    return new Contact(email, phone, new Address("Moscow", "Tverskaya", "123456"));
+  }
 
   @Test
   void shouldAddLeadWhenLeadIsUnique() {
     // Given
     LeadStorage storage = new LeadStorage();
     UUID id = UUID.randomUUID();
-    Lead uniqueLead = new Lead(id, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+    Lead uniqueLead = new Lead(id, contact("ivan@mail.ru", "+7123"), "TechCorp", "NEW");
 
     // When
     boolean added = storage.add(uniqueLead);
@@ -32,8 +39,8 @@ class LeadStorageTest {
     LeadStorage storage = new LeadStorage();
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
-    Lead existingLead = new Lead(id1, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
-    Lead duplicateLead = new Lead(id2, "ivan@mail.ru", "+7456", "Other", "NEW");
+    Lead existingLead = new Lead(id1, contact("ivan@mail.ru", "+7123"), "TechCorp", "NEW");
+    Lead duplicateLead = new Lead(id2, contact("ivan@mail.ru", "+7456"), "Other", "NEW");
     storage.add(existingLead);
 
     // When
@@ -50,13 +57,15 @@ class LeadStorageTest {
     // Given: Заполни хранилище 100 лидами
     LeadStorage storage = new LeadStorage();
     for (int index = 0; index < 100; index++) {
-      storage.add(new Lead(UUID.randomUUID(), "lead" + index + "@mail.ru",
-          "+7000", "Company", "NEW"));
+      Address address = new Address("City", "Street", "000000");
+      Contact contact = new Contact("lead" + index + "@mail.ru", "+7000", address);
+      storage.add(new Lead(UUID.randomUUID(), contact, "Company", "NEW"));
     }
 
     // When + Then: 101-й лид должен выбросить исключение
-    Lead hundredFirstLead = new Lead(UUID.randomUUID(), "lead101@mail.ru",
-        "+7001", "Company", "NEW");
+    Contact hundredFirstContact = new Contact("lead101@mail.ru", "+7001",
+        new Address("City", "Street", "000000"));
+    Lead hundredFirstLead = new Lead(UUID.randomUUID(), hundredFirstContact, "Company", "NEW");
 
     assertThatThrownBy(() -> storage.add(hundredFirstLead))
         .isInstanceOf(IllegalStateException.class)
@@ -69,8 +78,8 @@ class LeadStorageTest {
     LeadStorage storage = new LeadStorage();
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
-    Lead firstLead = new Lead(id1, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
-    Lead secondLead = new Lead(id2, "maria@startup.io", "+7456", "StartupLab", "NEW");
+    Lead firstLead = new Lead(id1, contact("ivan@mail.ru", "+7123"), "TechCorp", "NEW");
+    Lead secondLead = new Lead(id2, contact("maria@startup.io", "+7456"), "StartupLab", "NEW");
     storage.add(firstLead);
     storage.add(secondLead);
 
@@ -87,7 +96,7 @@ class LeadStorageTest {
     // Given
     LeadStorage storage = new LeadStorage();
     UUID id = UUID.randomUUID();
-    Lead lead = new Lead(id, "ivan@mail.ru", "+7123", "TechCorp", "NEW");
+    Lead lead = new Lead(id, contact("ivan@mail.ru", "+7123"), "TechCorp", "NEW");
     storage.add(lead);
 
     // When
@@ -101,7 +110,7 @@ class LeadStorageTest {
   void shouldReturnNullWhenFindByIdWithNonExistentId() {
     // Given
     LeadStorage storage = new LeadStorage();
-    storage.add(new Lead(UUID.randomUUID(), "ivan@mail.ru", "+7123", "TechCorp", "NEW"));
+    storage.add(new Lead(UUID.randomUUID(), contact("ivan@mail.ru", "+7123"), "TechCorp", "NEW"));
 
     // When
     Lead found = storage.findById(UUID.randomUUID());
