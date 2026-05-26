@@ -1,5 +1,6 @@
 package ru.mentee.power.crm.domain;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -24,5 +25,22 @@ public record Lead(UUID id, Contact contact, String company, String status) {
       throw new IllegalArgumentException(
           "Invalid status: " + status + ". Allowed: " + ALLOWED_STATUSES);
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    Lead other = (Lead) o;
+    return Objects.equals(this.id, other.id);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id);
   }
 }

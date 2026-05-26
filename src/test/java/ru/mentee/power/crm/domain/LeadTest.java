@@ -132,7 +132,7 @@ class LeadTest {
   }
 
   @Test
-  void shouldNotBeEqualWhenSameIdButDifferentContact() {
+  void shouldBeEqualWhenSameIdButDifferentContact() {
     UUID id = UUID.randomUUID();
     Address address1 = new Address("Moscow", "Tverskaya", "123456");
     Address address2 = new Address("SPb", "Nevsky", "654321");
@@ -141,7 +141,8 @@ class LeadTest {
     Lead lead1 = new Lead(id, contact1, "Company", "NEW");
     Lead lead2 = new Lead(id, contact2, "Company", "NEW");
 
-    assertThat(lead1).isNotEqualTo(lead2);
+    assertThat(lead1).isEqualTo(lead2);
+    assertThat(lead1.hashCode()).isEqualTo(lead2.hashCode());
   }
 
   @Test
