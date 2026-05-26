@@ -260,7 +260,7 @@ Trade-offs: явное против неявного
 
 Ошибок не обнаружено согласно Code Review Checklist раздела.
 
-## BCORE-5
+## BCORE-5: ООП: инкапсуляция и композиция
 
 Q: Когда использовать композицию, а когда наследование?
 
@@ -329,6 +329,90 @@ repository; } ``` — композиция обычного класса с ин
 ### Результат само-ревью BCORE-5
 
 Ошибок не обнаружено согласно Code Review Checklist раздела.
+
+## BCORE-6: Repository интерфейс и InMemory реализация
+
+### Пять ключевых навыков Repository Pattern
+
+1. Понимание интерфейса как контракта
+
+Интерфейс Repository определяет обещание предоставить операции с данными без указания как именно эти операции
+реализованы. Это фундаментальная концепция абстракции: высокоуровневый код зависит от контракта (интерфейса),
+низкоуровневый код предоставляет реализацию. Dependency Inversion Principle гласит - зависимость направлена от деталей к
+абстракциям, а не наоборот.
+
+Практический пример: сервис LeadService имеет поле private final Repository<Lead> repository (тип - интерфейс). При
+создании сервиса передаем конкретную реализацию: new LeadService(new InMemoryLeadRepository()) для разработки или new
+LeadService(new JdbcLeadRepository()) для продакшена. Сервис вызывает repository.findAll() не зная деталей - данные в
+памяти, PostgreSQL или Redis. Код сервиса остается стабильным при смене технологий хранения. Это снижает coupling и
+повышает testability.
+
+Источники: Oracle - Interfaces, Martin Fowler - Repository Pattern
+
+2. Generic типы для переиспользования кода
+
+Generic типы Repository<T> позволяют создать один интерфейс для разных сущностей: Repository, Repository, Repository.
+Параметр T (type parameter) заменяется конкретным классом при использовании. Это type-safe альтернатива Object -
+компилятор проверяет типы на этапе компиляции, исключая runtime ошибки ClassCastException.
+
+Современная практика: начинать с конкретного Repository без дженериков для понимания концепции, затем переходить к
+Repository для переиспользования. Generic Repository имеет ограничения в сложных сценариях (считается анти-паттерном
+когда интерфейс постоянно расширяется новыми методами), но идеален для InMemory реализаций и простых CRUD операций.
+Spring Data JPA решает проблемы Generic Repository через CrudRepository с умными методами query by method name.
+
+Источники: Oracle - Generics, Dot Net Tutorials - Generic Repository
+
+3. ArrayList performance characteristics
+
+ArrayList предоставляет fast random access (get/set за O(1)), fast iteration, amortized O(1) добавление в конец. Внутри
+использует Object[] массив с automatic resize: capacity увеличивается в 1.5 раза когда заканчивается место. Операции
+поиска (contains, indexOf) - O(n) линейные, так как требуют проверки каждого элемента.
+
+Critical tradeoffs для Repository: ArrayList excellent для небольших коллекций (10-100 элементов), simple iteration,
+случаев где order важен. Проблемы начинаются при 1000+ элементов: findById становится медленным (O(n) вместо O(1) у
+HashMap), дедупликация через contains требует full scan. В BCORE-7 решим через HashSet (O(1) для contains), в BCORE-8
+через HashMap (O(1) для get by ID). Правило: до ~5 элементов ArrayList быстрее чем HashMap из-за lower overhead, после
+5-6 элементов HashMap выигрывает.
+
+Источники: Baeldung - Collections Time Complexity, Stack Overflow - ArrayList vs HashMap
+
+4. Aggregate Root и границы Repository
+
+Aggregate Root определяет границу транзакции и консистентности в домене. Только корень агрегата получает Repository -
+внутренние объекты доступны через навигацию от корня. Lead - Aggregate Root (имеет UUID, управляет жизненным циклом),
+Contact и Address - value objects (без самостоятельного ID, immutable, равенство по значениям).
+
+Ошибка новичков: создавать Repository для каждого entity класса - ContactRepository, AddressRepository. Это нарушает
+Aggregate boundaries: Contact должен существовать только в контексте Lead, не как standalone entity. Изменения Contact
+всегда через Lead: lead.updateContact(newContact), не через отдельный ContactRepository.save(). Это обеспечивает
+invariants агрегата - бизнес-правила проверяются на уровне Lead, который контролирует свои внутренние объекты.
+
+Источники: Martin Fowler - DDD Aggregate, Baeldung - Aggregate Root
+
+5. InMemory реализации для тестирования
+
+InMemory Repository - паттерн где данные хранятся в коллекции вместо базы данных. Быстрое создание/уничтожение делает
+InMemory идеальным для unit тестов: не нужны Testcontainers, H2, или моки. Тесты проверяют реальное поведение
+Repository (дедупликация, порядок, границы) за миллисекунды.
+
+Преимущество перед моками: InMemory Repository содержит реальную логику (дедупликация через contains, навигация через
+stream), а моки просто возвращают stub данные. Когда тестируешь LeadService с InMemory repository, проверяешь интеграцию
+сервиса с реальным Repository API, не с mockito заглушками. Многие production проекты используют InMemory для тестов:
+создают общий интерфейс, тесты работают с интерфейсом, runtime использует JdbcRepository.
+---
+
+### Про класс vs record для InMemory Repository
+
+`InMemoryLeadRepository` — **обычный класс**, не record. Это правильный выбор.
+
+|             | Record                     | Обычный класс                      |
+|-------------|----------------------------|------------------------------------|
+| Состояние   | immutable (финальные поля) | **мутабельное** (список `storage`) |
+| Конструктор | канонический (все поля)    | **пустой по умолчанию**            |
+| Назначение  | данные (DTO, Value Object) | **сервис/хранилище**               |
+
+**equals/hashCode — не нужны.** `InMemoryLeadRepository` — сервис, его экземпляры не сравнивают и не кладут в HashMap.
+`equals` от Object (по ссылке) достаточно.
 
 ---
 
@@ -480,5 +564,32 @@ find symbol id». Чтобы вызывать методы/поля класса
 знает `Object`" и "на самом деле `Lead`".
 
 ---
+
+### Программирование на уровень интерфейса: `List` vs `ArrayList`
+
+```java
+List<Lead> storage = new ArrayList<>();    // ✅ гибко (program to an interface)
+ArrayList<Lead> storage = new ArrayList<>(); // ❌ жёсткая привязка к реализации
+```
+
+`List` — **интерфейс** (контракт: какие методы есть у списка). `ArrayList`, `LinkedList` — **реализации**.
+
+**Почему `List` лучше:**
+
+- Можно заменить `ArrayList` на `LinkedList` без правки кода, меняя только `new...()`
+- Переменная видит только методы из `List` — класс не зависит от специфики `ArrayList`
+- Стандартный паттерн в Java коллекциях и фреймворках (Spring, Hibernate)
+
+**Иерархия:**
+
+```
+Iterable → Collection → List (интерфейс)
+                        ├── ArrayList (на массиве)
+                        ├── LinkedList (на узлах)
+                        └── Vector (устаревший)
+```
+
+**Метафора:** `List` — меню (описывает блюда), `ArrayList` — конкретное блюдо (как приготовлено). Клиент заказывает по
+меню, а не требует конкретного повара.
 
 
