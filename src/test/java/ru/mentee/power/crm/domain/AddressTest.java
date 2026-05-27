@@ -3,11 +3,13 @@ package ru.mentee.power.crm.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class AddressTest {
 
   @Test
+  @DisplayName("Should create address when valid data")
   void shouldCreateAddressWhenValidData() {
     Address address = new Address("Москва", "Декабристов", "624000");
 
@@ -16,6 +18,7 @@ class AddressTest {
   }
 
   @Test
+  @DisplayName("Should be equal when same data")
   void shouldBeEqualWhenSameData() {
     Address firstAddress = new Address("Москва", "Декабристов", "624000");
     Address secondAddress = new Address("Москва", "Декабристов", "624000");
@@ -25,12 +28,14 @@ class AddressTest {
   }
 
   @Test
+  @DisplayName("Should throw exception when city is null")
   void shouldThrowExceptionWhenCityIsNull() {
     assertThatIllegalArgumentException().isThrownBy(() -> new Address(null, "Декабристов",
         "624000")).withMessage("City must not be null or blank");
   }
 
   @Test
+  @DisplayName("Should throw exception when zip is blank")
   void shouldThrowExceptionWhenZipIsBlank() {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new Address("Москва", "Декабристов", ""))
