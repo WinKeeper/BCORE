@@ -6,16 +6,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class LeadEqualsHashCodeTest {
 
-  // Чтобы каждый раз не прописывать contact в каждом тесте вынес наверх
   private static Contact createContact() {
     return new Contact("ivan@mail.ru", "+7123", new Address("Moscow", "Tverskaya", "123456"));
   }
 
   @Test
+  @DisplayName("Should be reflexive when equals called on same object")
   void shouldBeReflexiveWhenEqualsCalledOnSameObject() {
     // Given
     Lead lead = new Lead(UUID.randomUUID(), createContact(), "TechCorp", "NEW");
@@ -25,6 +26,7 @@ class LeadEqualsHashCodeTest {
   }
 
   @Test
+  @DisplayName("Should be symmetric when equals called on two objects")
   void shouldBeSymmetricWhenEqualsCalledOnTwoObjects() {
     // Given
     UUID id = UUID.randomUUID();
@@ -37,6 +39,7 @@ class LeadEqualsHashCodeTest {
   }
 
   @Test
+  @DisplayName("Should be transitive for chain of three objects")
   void shouldBeTransitiveWhenEqualsChainOfThreeObjects() {
     // Given
     UUID id = UUID.randomUUID();
@@ -51,6 +54,7 @@ class LeadEqualsHashCodeTest {
   }
 
   @Test
+  @DisplayName("Should be consistent when equals called multiple times")
   void shouldBeConsistentWhenEqualsCalledMultipleTimes() {
     // Given
     UUID id = UUID.randomUUID();
@@ -64,6 +68,7 @@ class LeadEqualsHashCodeTest {
   }
 
   @Test
+  @DisplayName("Should return false when equals compared with null")
   void shouldReturnFalseWhenEqualsComparedWithNull() {
     // Given
     Lead lead = new Lead(UUID.randomUUID(), createContact(), "TechCorp", "NEW");
@@ -73,6 +78,7 @@ class LeadEqualsHashCodeTest {
   }
 
   @Test
+  @DisplayName("Should have same hash code when objects are equal")
   void shouldHaveSameHashCodeWhenObjectsAreEqual() {
     // Given
     UUID id = UUID.randomUUID();
@@ -85,6 +91,7 @@ class LeadEqualsHashCodeTest {
   }
 
   @Test
+  @DisplayName("Should work in hash map when lead used as key")
   void shouldWorkInHashMapWhenLeadUsedAsKey() {
     // Given
     UUID id = UUID.randomUUID();
@@ -102,6 +109,7 @@ class LeadEqualsHashCodeTest {
   }
 
   @Test
+  @DisplayName("Should not be equal when ids are different")
   void shouldNotBeEqualWhenIdsAreDifferent() {
     // Given
     UUID id1 = UUID.randomUUID();

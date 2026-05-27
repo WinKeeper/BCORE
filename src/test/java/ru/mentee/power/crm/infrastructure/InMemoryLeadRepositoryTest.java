@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.mentee.power.crm.domain.Address;
 import ru.mentee.power.crm.domain.Contact;
@@ -13,6 +14,7 @@ import ru.mentee.power.crm.domain.Lead;
 class InMemoryLeadRepositoryTest {
 
   @Test
+  @DisplayName("Should add unique entity when add called")
   void shouldAddUniqueEntityWhenAddCalled() {
     // Given
     InMemoryLeadRepository repository = new InMemoryLeadRepository();
@@ -34,6 +36,7 @@ class InMemoryLeadRepositoryTest {
   }
 
   @Test
+  @DisplayName("Should not add duplicate entity")
   void shouldNotAddDublicateEntityWhenAddCalled() {
     // Given
     InMemoryLeadRepository repository = new InMemoryLeadRepository();
@@ -53,6 +56,7 @@ class InMemoryLeadRepositoryTest {
   }
 
   @Test
+  @DisplayName("Should find entity when find by id called")
   void shouldFindEntityWhenFindByIdCalled() {
     // Given
     InMemoryLeadRepository repository = new InMemoryLeadRepository();
@@ -74,6 +78,7 @@ class InMemoryLeadRepositoryTest {
   }
 
   @Test
+  @DisplayName("Should return empty optional for non existent id")
   void shouldNotFindEntityWhenFindByIdCalled() {
     // Given
     InMemoryLeadRepository repository = new InMemoryLeadRepository();
@@ -91,6 +96,7 @@ class InMemoryLeadRepositoryTest {
   }
 
   @Test
+  @DisplayName("Should remove existing entity when remove called")
   void shouldRemoveExistingEntityWhenRemoveCalled() {
     // Given
     InMemoryLeadRepository repository = new InMemoryLeadRepository();
@@ -110,6 +116,7 @@ class InMemoryLeadRepositoryTest {
   }
 
   @Test
+  @DisplayName("Should return defensive copy when find all called")
   void shouldReturnDefensiveCopyWhenFindAllCalled() {
     InMemoryLeadRepository repository = new InMemoryLeadRepository();
     Lead lead = new Lead(UUID.randomUUID(),

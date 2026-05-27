@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class CustomerTest {
   @Test
+  @DisplayName("Should reuse contact when creating customer")
   void shouldReuseContactWhenCreatingCustomer() {
     // Given
     UUID id1 = UUID.randomUUID();
@@ -25,6 +27,7 @@ class CustomerTest {
   }
 
   @Test
+  @DisplayName("Should demonstrate contact reuse across lead and customer")
   void shouldDemonstrateContactReuseAcrossLeadAndCustomer() {
     // Given: один Contact
     Address address = new Address("Moscow", "Tverskaya", "123456");

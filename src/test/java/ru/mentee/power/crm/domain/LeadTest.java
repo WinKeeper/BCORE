@@ -5,12 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.mentee.power.crm.storage.LeadStorage;
 
 class LeadTest {
 
   @Test
+  @DisplayName("Should return id when get id called")
   void shouldReturnIdWhenGetIdCallen() {
     // Given
     UUID uuid = UUID.randomUUID();
@@ -23,6 +25,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should return email via contact delegation")
   void shouldReturnEmailWhenGetEmailCallen() {
     // Given
     Address address = new Address("Moscow", "Tverskaya", "123456");
@@ -37,6 +40,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should return phone via contact delegation")
   void shouldReturnPhoneWhenGetPhoneCallen() {
     // Given
     Address address = new Address("Moscow", "Tverskaya", "123456");
@@ -51,6 +55,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should return company")
   void shouldReturnCompanyWhenGetCompanyCallen() {
     // Given
     Address address = new Address("Moscow", "Tverskaya", "123456");
@@ -65,6 +70,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should return status")
   void shouldReturnStatusWhenGetStatusCallen() {
     // Given
     Address address = new Address("Moscow", "Tverskaya", "123456");
@@ -79,6 +85,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should return formatted string when to string called")
   void shouldReturnFormattedStringWhenToStringCalled() {
     // Given
     UUID uuid = UUID.randomUUID();
@@ -92,6 +99,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should prevent string confusion when using uuid")
   void shouldPreventStringConfusionWhenUsingUuid() {
     UUID id = UUID.randomUUID();
     Address address = new Address("Moscow", "Tverskaya", "123456");
@@ -113,6 +121,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should create lead when valid data")
   void shouldCreateLeadWhenValidData() {
     Address address = new Address("Moscow", "Tverskaya", "123456");
     Contact contact = new Contact("test@mail.ru", "+7000", address);
@@ -122,6 +131,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should access email through delegation")
   void shouldAccessEmailThroughDelegationWhenLeadCreated() {
     Address address = new Address("Moscow", "Tverskaya", "123456");
     Contact contact = new Contact("test@mail.ru", "+7000", address);
@@ -132,6 +142,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should be equal when same id but different contact")
   void shouldBeEqualWhenSameIdButDifferentContact() {
     UUID id = UUID.randomUUID();
     Address address1 = new Address("Moscow", "Tverskaya", "123456");
@@ -146,6 +157,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should throw exception when contact is null")
   void shouldThrowExceptionWhenContactIsNull() {
     assertThatThrownBy(() -> new Lead(UUID.randomUUID(), null, "Company", "NEW"))
         .isInstanceOf(IllegalArgumentException.class)
@@ -153,6 +165,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should throw exception when invalid status")
   void shouldThrowExceptionWhenInvalidStatus() {
     assertThatThrownBy(() -> new Lead(UUID.randomUUID(),
         new Contact("test@mail.ru", "+7000", new Address("Moscow", "Tverskaya", "123456")),
@@ -162,6 +175,7 @@ class LeadTest {
   }
 
   @Test
+  @DisplayName("Should demonstrate three level composition")
   void shouldDemonstrateThreeLevelCompositionWhenAccessingCity() {
     Address address = new Address("Moscow", "Tverskaya", "123456");
     Contact contact = new Contact("test@mail.ru", "+7000", address);

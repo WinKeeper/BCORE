@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.mentee.power.crm.domain.Address;
 import ru.mentee.power.crm.domain.Contact;
@@ -12,12 +13,12 @@ import ru.mentee.power.crm.domain.Lead;
 
 class LeadStorageTest {
 
-  // Чтобы каждый раз не прописывать contact в каждом тесте вынес наверх
   private static Contact contact(String email, String phone) {
     return new Contact(email, phone, new Address("Moscow", "Tverskaya", "123456"));
   }
 
   @Test
+  @DisplayName("Should add lead when lead is unique")
   void shouldAddLeadWhenLeadIsUnique() {
     // Given
     LeadStorage storage = new LeadStorage();
@@ -34,6 +35,7 @@ class LeadStorageTest {
   }
 
   @Test
+  @DisplayName("Should reject duplicate when email already exists")
   void shouldRejectDuplicateWhenEmailAlreadyExists() {
     // Given
     LeadStorage storage = new LeadStorage();
@@ -53,6 +55,7 @@ class LeadStorageTest {
   }
 
   @Test
+  @DisplayName("Should throw exception when storage is full")
   void shouldThrowExceptionWhenStorageIsFull() {
     // Given: Заполни хранилище 100 лидами
     LeadStorage storage = new LeadStorage();
@@ -73,6 +76,7 @@ class LeadStorageTest {
   }
 
   @Test
+  @DisplayName("Should return only added leads when find all called")
   void shouldReturnOnlyAddedLeadsWhenFindAllCalled() {
     // Given
     LeadStorage storage = new LeadStorage();
@@ -92,6 +96,7 @@ class LeadStorageTest {
   }
 
   @Test
+  @DisplayName("Should return lead when find by id with existing id")
   void shouldReturnLeadWhenFindByIdWithExistingId() {
     // Given
     LeadStorage storage = new LeadStorage();
@@ -107,6 +112,7 @@ class LeadStorageTest {
   }
 
   @Test
+  @DisplayName("Should return null for non existent id")
   void shouldReturnNullWhenFindByIdWithNonExistentId() {
     // Given
     LeadStorage storage = new LeadStorage();
