@@ -3,6 +3,9 @@ package ru.mentee.power.crm.core;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -82,10 +85,10 @@ class LeadRepositoryTest {
         "Company", "NEW");
     repository.add(lead);
 
-    // TODO: When - вызвать findAll и попытаться изменить результат
+    // When - вызвать findAll и попытаться изменить результат
     Set<Lead> result = repository.findAll();
 
-    // TODO: Then - проверить что выбрасывается UnsupportedOperationException
+    // Then - проверить что выбрасывается UnsupportedOperationException
     assertThatThrownBy(() -> result.add(lead))
         .isInstanceOf(UnsupportedOperationException.class);
 
@@ -94,5 +97,41 @@ class LeadRepositoryTest {
 
     assertThatThrownBy(() -> result.clear())
         .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  @DisplayName("Should perform contains faster than array list")
+  void shouldPerformFasterThanArrayList() {
+    Address address = new Address("Moscow", "Tverskaya", "123456");
+    Contact contact = new Contact("test@mail.ru", "+7000", address);
+
+    Set<Lead> hashSet = new HashSet<>();
+    List<Lead> arrayList = new ArrayList<>();
+
+    for (int i = 0; i < 10000; i++) {
+      Lead lead = new Lead(UUID.randomUUID(), contact, "Company", "NEW");
+      hashSet.add(lead);
+      arrayList.add(lead);
+    }
+
+    Lead target = new Lead(UUID.randomUUID(), contact, "Company", "NEW");
+    hashSet.add(target);
+    arrayList.add(target);
+
+    long startHashSet = System.nanoTime();
+    for (int i = 0; i < 1000; i++) {
+      hashSet.contains(target);
+    }
+    long hashSetTime = System.nanoTime() - startHashSet;
+
+    long startArrayList = System.nanoTime();
+    for (int i = 0; i < 1000; i++) {
+      arrayList.contains(target);
+    }
+    long arrayListTime = System.nanoTime() - startArrayList;
+
+    int speedup = (int) (arrayListTime / hashSetTime);
+    assertThat(speedup).as("HashSet should be 100x faster than ArrayList")
+        .isGreaterThan(100);
   }
 }
