@@ -1,5 +1,6 @@
 package ru.mentee.power.crm.core;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -17,7 +18,7 @@ public class LeadRepository {
   }
 
   public Set<Lead> findAll() {
-    return new HashSet<>(leads);
+    return Collections.unmodifiableSet(new HashSet<>(leads));
   }
 
   public int size() {
