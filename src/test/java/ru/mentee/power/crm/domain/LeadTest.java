@@ -7,7 +7,6 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.mentee.power.crm.storage.LeadStorage;
 
 class LeadTest {
 
@@ -96,28 +95,6 @@ class LeadTest {
     // Then
     String expected = "Lead[id=" + uuid + ", contact=" + contact + ", company=alibaba, status=NEW]";
     assertThat(lead.toString()).isEqualTo(expected);
-  }
-
-  @Test
-  @DisplayName("Should prevent string confusion when using uuid")
-  void shouldPreventStringConfusionWhenUsingUuid() {
-    UUID id = UUID.randomUUID();
-    Address address = new Address("Moscow", "Tverskaya", "123456");
-    Contact contact = new Contact("a@b.com", "+7000", address);
-    Lead lead = new Lead(id, contact, "Co", "NEW");
-
-    LeadStorage storage = new LeadStorage();
-    storage.add(lead);
-
-    // Компилятор не даст передать String вместо UUID:
-    // storage.findById("some-string");  // compilation error
-
-    // Только UUID:
-    Lead found = storage.findById(id);
-    assertThat(found).isEqualTo(lead);
-
-    // Другой UUID — вернёт null (типы не перепутать):
-    assertThat(storage.findById(UUID.randomUUID())).isNull();
   }
 
   @Test
