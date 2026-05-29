@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                            |---|---|---|
+                                                                  |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,7 +526,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                            |---|---|---|
+                                                                  |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -1075,22 +1075,114 @@ Checkpoint 4: Тесты написаны
 
 Checkpoint 1: Mockito добавлен
 
-    [ ] build.gradle содержит mockito-core
-    [ ] build.gradle содержит mockito-junit-jupiter
-    [ ] Ctrl+Ctrl → gradle build проходит
+    [X] build.gradle содержит mockito-core
+    [X] build.gradle содержит mockito-junit-jupiter
+    [X] Ctrl+Ctrl → gradle build проходит
 
 Checkpoint 2: Mock тесты работают
 
-    [ ] @Mock аннотация на LeadRepository
-    [ ] @ExtendWith(MockitoExtension.class) на классе теста
-    [ ] when().thenReturn() настраивает поведение
-    [ ] verify() проверяет вызовы
+    [X] @Mock аннотация на LeadRepository
+    [X] @ExtendWith(MockitoExtension.class) на классе теста
+    [X] when().thenReturn() настраивает поведение
+    [X] verify() проверяет вызовы
 
 Checkpoint 3: Понимание DI
 
-    [ ] Могу объяснить разницу BAD vs GOOD
-    [ ] Понимаю зачем нужен mock
-    [ ] Понимаю что такое IoC
+    [X] Могу объяснить разницу BAD vs GOOD
+    [X] Понимаю зачем нужен mock
+    [X] Понимаю что такое IoC
+
+## BCORE-11: HelloCrmServer — HTTP-обработка запросов
+
+### HelloHandler: стандартное vs проектное
+
+HTTP-обработчик — метод, вызываемый при каждом входящем запросе.
+Весь код внутри делится на **стандартную обвязку** (~70%) и **проектную логику** (~30%).
+
+#### Стандартная обвязка (пишется одинаково в любом проекте)
+
+```java
+
+@Override
+public void handle(HttpExchange exchange) throws IOException {
+
+  exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+  exchange.sendResponseHeaders(200, response.getBytes().length);
+
+  OutputStream os = exchange.getResponseBody();
+  os.write(response.getBytes());
+  os.close();
+
+  exchange.close();
+}
+```
+
+| Строка                                | Что делает                        | Меняется? |
+|---------------------------------------|-----------------------------------|-----------|
+| `implements HttpHandler`              | Контракт «умею обрабатывать HTTP» | ❌         |
+| `getResponseHeaders().set(...)`       | Заголовки (тип контента)          | Значение  |
+| `sendResponseHeaders(код, длина)`     | Статус-код (200/404/500)          | Код       |
+| `OutputStream os = getResponseBody()` | Открыть канал ответа              | ❌         |
+| `os.write(...)`                       | Отправить байты клиенту           | ❌         |
+| `os.close()`                          | Закрыть поток                     | ❌         |
+
+#### Проектная логика (меняется под задачу)
+
+```java
+String method = exchange.getRequestMethod();      // GET, POST, PUT, DELETE
+String path = exchange.getRequestURI().getPath();  // "/api/leads", "/api/leads/123"
+
+String response;
+if("GET".
+
+equals(method) &&"/api/leads".
+
+equals(path)){
+List<Lead> leads = leadService.findAll();     // бизнес-логика
+response =
+
+toJson(leads);
+
+}else if("POST".
+
+equals(method) &&path.
+
+startsWith("/api/leads")){
+String body = new String(exchange.getRequestBody().readAllBytes());
+Lead lead = parseLead(body);                   // парсинг
+response =
+
+toJson(lead);
+
+}else{
+    exchange.
+
+sendResponseHeaders(404,-1);         // не найдено
+    return;
+        }
+```
+
+| Что меняется                          | Как                                              |
+|---------------------------------------|--------------------------------------------------|
+| Путь (`/api/leads`, `/api/leads/123`) | Маршруты — какие URL обрабатывает сервер         |
+| Метод (GET/POST/PUT/DELETE)           | CRUD операции                                    |
+| Чтение тела (`getRequestBody()`)      | POST/PUT приносят данные для создания/обновления |
+| Контент ответа                        | HTML-заглушка → JSON с лидами                    |
+
+#### Бытовые аналогии
+
+| HTTP                | Аналогия                                                         |
+|---------------------|------------------------------------------------------------------|
+| Стандартная обвязка | Почтальон всегда стучит, отдаёт посылку, просит подпись          |
+| Проектная логика    | «Какая посылка и куда нести» — зависит от адресата и содержимого |
+| `Content-Type`      | Наклейка «Хрупкое» — получатель знает, как обращаться            |
+| 200 / 404 / 500     | «Доставлено» / «Адресат не найден» / «Посылка разбилась»         |
+
+### Заметки
+
+- **Java 25** упростила `main` — `static void main()` теперь валиден без `public` и без `String[] args`
+- Тесты на `HelloCrmServer` (4 теста): 200, 404, множественные запросы, отказ после stop
+- Сервер запускается на случайном порту (`port = 0`), `getPort()` возвращает реальный номер
 
 ---
 
@@ -1288,9 +1380,9 @@ Iterable → Collection → List (интерфейс)
 #### Синтаксис
 
 ```java
-(параметры) -> { тело }
+(параметры)->{тело }
 // или коротко (одно действие):
-(параметры) -> результат
+    (параметры)->результат
 ```
 
 #### Примеры из проекта
@@ -1298,27 +1390,47 @@ Iterable → Collection → List (интерфейс)
 ```java
 // 1. Предикат для фильтрации:
 leads.stream()
-    .filter(lead -> lead.email().equals(email))  // «каждый lead проверь на email»
-    .findFirst();
+    .
+
+filter(lead ->lead.
+
+email().
+
+equals(email))  // «каждый lead проверь на email»
+    .
+
+findFirst();
 
 // 2. Mockito — динамический ответ:
 when(repo.findByEmail(anyString()))
-    .thenAnswer(inv -> inv.getArgument(0));  // «верни то, что передали»
+    .
+
+thenAnswer(inv ->inv.
+
+getArgument(0));  // «верни то, что передали»
 
 // 3. Действие, если есть значение:
-optional.ifPresent(lead -> System.out.println(lead.email()));
+    optional.
+
+ifPresent(lead ->System.out.
+
+println(lead.email()));
 
 // 4. Поставщик исключения:
-.orElseThrow(() -> new RuntimeException("Not found"));
+    .
+
+orElseThrow(() ->new
+
+RuntimeException("Not found"));
 ```
 
 #### Бытовые аналогии
 
-| Лямбда | Аналогия |
-|---|---|
-| `lead -> lead.email()` | Инструкция курьеру: «у каждой посылки проверь адрес» |
-| `() -> new Lead(...)` | Конверт с запасным ключом: «если основной потерян — сделай новый» |
-| `inv -> inv.getArgument(0)` | Автоответчик: «что скажешь, то и повторю» |
+| Лямбда                      | Аналогия                                                          |
+|-----------------------------|-------------------------------------------------------------------|
+| `lead -> lead.email()`      | Инструкция курьеру: «у каждой посылки проверь адрес»              |
+| `() -> new Lead(...)`       | Конверт с запасным ключом: «если основной потерян — сделай новый» |
+| `inv -> inv.getArgument(0)` | Автоответчик: «что скажешь, то и повторю»                         |
 
 #### Главное
 
