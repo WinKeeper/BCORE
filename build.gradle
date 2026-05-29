@@ -20,17 +20,17 @@ java {
     }
 }
 
-//application {
-
-//}
+application {
+    mainClass = 'ru.mentee.power.crm.Main'
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    testImplementation 'org.mockito:mockito-core:5.23.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.23.0'
+    testImplementation 'org.mockito:mockito-core:5.23.0' // BCORE-10
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.23.0' // BCORE-10
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testImplementation "org.assertj:assertj-core:${assertjVersion}"
