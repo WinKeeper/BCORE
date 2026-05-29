@@ -26,6 +26,10 @@ public class HelloCrmServer {
     server.stop(0);
   }
 
+  public int getPort() {
+    return server.getAddress().getPort();
+  }
+
   static class HelloHandler implements HttpHandler {
 
     @Override
