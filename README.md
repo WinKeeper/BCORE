@@ -1437,5 +1437,43 @@ RuntimeException("Not found"));
 Лямбда — это **поведение, упакованное в переменную**. Ты не говоришь «как делать»
 (отдельный класс, implements), ты говоришь **«что делать»** — прямо в месте вызова.
 
+---
+
+### Convention over Configuration — «Соглашение вместо настройки»
+
+Принцип: фреймворк **сам догадывается** о конфигурации, если ты следуешь общепринятым правилам. Конфигурация нужна только при отклонении от стандарта.
+
+**Пример из проекта:**
+
+| Ты написал | Фреймворк сделал САМ |
+|---|---|
+| `@Test` над методом | JUnit запустит его как тест |
+| `@Mock` над полем | Mockito создаст мок |
+| DI-конструктор `LeadService(LeadRepository r)` | Spring сам найдёт и внедрит реализацию |
+| `@BeforeEach` | Выполнит перед каждым тестом |
+
+**Без COC (явная конфигурация, Spring XML 2005):**
+
+```xml
+<bean id="leadService" class="ru.mentee.crm.service.LeadService">
+    <constructor-arg ref="leadRepository"/>    <!-- вручную -->
+</bean>
+<bean id="leadRepository" class="ru.mentee.crm.repository.InMemoryLeadRepository"/>
+```
+
+**С COC (Spring Boot, сегодня):**
+
+```java
+@Service
+public class LeadService {
+    private final LeadRepository repository;
+    public LeadService(LeadRepository r) { this.repository = r; }
+}
+// Spring САМ найдёт LeadRepository и внедрит — без XML и конфигурации
+```
+
+**Аналогия:** в ресторане без COC — ты заказываешь воду, хлеб, салфетку. С COC — садишься за столик, официант уже знает: вода без газа, приборы справа. 90% гостей довольны без лишних слов.
+
+
 
 
