@@ -12,6 +12,8 @@ ext {
     junitVersion = '5.11.0' // BCORE-1
     assertjVersion = '3.26.3' // BCORE-1
     lombokVersion = '1.18.46'  // BCORE-4
+    servletVersion = '6.1.0' // BCORE-12
+    tomcatVersion = '11.0.22' // BCORE-12
 }
 
 java {
@@ -29,6 +31,8 @@ repositories {
 }
 
 dependencies {
+    implementation "jakarta.servlet:jakarta.servlet-api:${servletVersion}" // BCORE-12
+    implementation "org.apache.tomcat.embed:tomcat-embed-core:${tomcatVersion}" // BCORE-12
     testImplementation 'org.mockito:mockito-core:5.23.0' // BCORE-10
     testImplementation 'org.mockito:mockito-junit-jupiter:5.23.0' // BCORE-10
     testImplementation platform("org.junit:junit-bom:${junitVersion}")
