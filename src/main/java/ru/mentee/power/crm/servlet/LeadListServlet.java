@@ -22,10 +22,15 @@ public class LeadListServlet extends HttpServlet {
     // TODO: Получить LeadService из ServletContext через getAttribute("$$$")
     // Hint: используйте getServletContext().getAttribute("$$$") и приведите к LeadService
     ServletContext context = getServletContext();
+    System.out.println("GET /leads request received");
     LeadService service = (LeadService) context.getAttribute("leadService");
+    if (service == null) {
+      throw new IllegalStateException("LeadService not found in ServletContext");
+    }
 
     // TODO: Вызвать leadService.findAll() и сохранить результат в локальной переменной List<Lead> leads
     List<Lead> leads = service.findAll();
+    System.out.println("Found " + leads.size() + " leads");
 
     // TODO: Установить Content-Type через response.setContentType("$$$$")
     response.setContentType("text/html; charset=UTF-8");
