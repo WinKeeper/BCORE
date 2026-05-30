@@ -1,17 +1,40 @@
 package ru.mentee.power.crm.web;
 
+import java.io.File;
+
+import org.apache.catalina.Context;
+import org.apache.catalina.startup.Tomcat;
+import ru.mentee.power.crm.model.LeadStatus;
+import ru.mentee.power.crm.repository.InMemoryLeadRepository;
+import ru.mentee.power.crm.service.LeadService;
+import ru.mentee.power.crm.servlet.LeadListServlet;
+
 public class Main {
   static void main() throws Exception {
-    int port = 8080;
-    HelloCrmServer server = new HelloCrmServer(port);
+    InMemoryLeadRepository repository = new InMemoryLeadRepository();
+    LeadService leadService = new LeadService(repository);
 
-    server.start();
-    Thread.currentThread().join();
+    for (int i = 0; i < 5; i++) {
+      leadService.addLead("Email" + i + "@mail.ru", "12345" + i, "Corp #" + i, LeadStatus.NEW);
+    }
 
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      System.out.println("Server stopped");
-      server.stop();
-    }));
+    System.out.println("Lead count: " + leadService.findAll().size());
+
+    Tomcat tomcat = new Tomcat();
+    tomcat.setPort(8080);
+
+    Context context = tomcat.addContext("", new File(".").getAbsolutePath());
+    context.getServletContext().setAttribute("leadService", leadService);
+
+    tomcat.addServlet(context, "LeadListServlet", new LeadListServlet());
+    context.addServletMappingDecoded("/leads", "LeadListServlet");
+
+    tomcat.start();
+
+    System.out.println("Tomcat started on port: " + tomcat.getConnector().getLocalPort());
+    System.out.println("Open http://" + tomcat.getHost().getName() + ":8080/leads in browser");
+
+    tomcat.getServer().await();
 
   }
 }

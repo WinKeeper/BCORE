@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                                  |---|---|---|
+                                                                        |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,7 +526,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                                  |---|---|---|
+                                                                        |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -1178,11 +1178,70 @@ sendResponseHeaders(404,-1);         // не найдено
 | `Content-Type`      | Наклейка «Хрупкое» — получатель знает, как обращаться            |
 | 200 / 404 / 500     | «Доставлено» / «Адресат не найден» / «Посылка разбилась»         |
 
-### Заметки
+## BCORE-12: Первый Servlet для списка лидов
 
-- **Java 25** упростила `main` — `static void main()` теперь валиден без `public` и без `String[] args`
-- Тесты на `HelloCrmServer` (4 теста): 200, 404, множественные запросы, отказ после stop
-- Сервер запускается на случайном порту (`port = 0`), `getPort()` возвращает реальный номер
+### Связка Main ↔ LeadListServlet через ServletContext
+
+Приложение держится на трёх «мостиках»: **ServletContext** (общая память), **ключ `"leadService"`**
+(как найти объект), и **Tomcat** (кто маршрутизирует запросы).
+
+#### Main.java — старт (ПОЛОЖИЛИ)
+
+```java
+Context ctx = tomcat.addContext("", new File(".").getAbsolutePath());  // ① создать контекст
+ctx.getServletContext().setAttribute("leadService", service);          // ② положить LeadService
+tomcat.addServlet(ctx, "LeadListServlet", new LeadListServlet());      // ③ зарегистрировать сервлет
+ctx.addServletMappingDecoded("/leads", "LeadListServlet");             // ④ путь → сервлет
+```
+
+- ① `addContext` — создаёт контекст веб-приложения
+- ② `setAttribute("leadService", ...)` — кладёт `LeadService` в `ServletContext` под ключом `"leadService"`
+- ③ `addServlet` — регистрирует экземпляр сервлета в том же контексте
+- ④ `addServletMappingDecoded` — `/leads` → `LeadListServlet.doGet()`
+
+#### LeadListServlet.java — запрос (ДОСТАЛИ)
+
+```java
+ServletContext context = getServletContext();                              // ⑤ получить контекст
+LeadService service = (LeadService) context.getAttribute("leadService");  // ⑥ достать сервис
+List<Lead> leads = service.findAll();                                     // ⑦ бизнес-логика
+```
+
+- ⑤ `getServletContext()` — возвращает **тот же** объект, в который Main положил сервис
+- ⑥ `getAttribute("leadService")` — достаёт по ключу, ключ должен совпадать (регистр важен!)
+- ⑦ `findAll()` — реальная бизнес-логика через DI-сервис
+
+#### Поток HTTP-запроса
+
+```
+Браузер → GET /leads → Tomcat
+                          │
+                          ▼ Томкат смотрит маппинг: "/leads" → "LeadListServlet"
+                          │
+                          ▼ Вызывает LeadListServlet.doGet(request, response)
+                          │
+                          ▼ getServletContext() → getAttribute("leadService")
+                          │
+                          ▼ LeadService.findAll() → List<Lead>
+                          │
+                          ▼ Генерация HTML-таблицы → response.getWriter().println(...)
+                          │
+                          ▼ Браузер ← 200 OK + HTML
+```
+
+Контекст — это общая «память» приложения. **Main кладёт объект при старте, сервлеты достают при каждом запросе.** Один объект `LeadService` на всё приложение.
+
+#### Ключ `"leadService"`: почему регистр важен
+
+```java
+// Main.java:
+ctx.getServletContext().setAttribute("LeadService", service);  // ← большая L
+
+// LeadListServlet.java:
+context.getAttribute("leadService");  // ← маленькая l → null → IllegalStateException!
+```
+
+`"LeadService"` ≠ `"leadService"`. Если ключи не совпадают посимвольно — сервлет не найдёт сервис.
 
 ---
 
@@ -1436,6 +1495,51 @@ RuntimeException("Not found"));
 
 Лямбда — это **поведение, упакованное в переменную**. Ты не говоришь «как делать»
 (отдельный класс, implements), ты говоришь **«что делать»** — прямо в месте вызова.
+
+---
+
+### Convention over Configuration — «Соглашение вместо настройки»
+
+Принцип: фреймворк **сам догадывается** о конфигурации, если ты следуешь общепринятым правилам. Конфигурация нужна
+только при отклонении от стандарта.
+
+**Пример из проекта:**
+
+| Ты написал                                     | Фреймворк сделал САМ                   |
+|------------------------------------------------|----------------------------------------|
+| `@Test` над методом                            | JUnit запустит его как тест            |
+| `@Mock` над полем                              | Mockito создаст мок                    |
+| DI-конструктор `LeadService(LeadRepository r)` | Spring сам найдёт и внедрит реализацию |
+| `@BeforeEach`                                  | Выполнит перед каждым тестом           |
+
+**Без COC (явная конфигурация, Spring XML 2005):**
+
+```xml
+
+<bean id="leadService" class="ru.mentee.crm.service.LeadService">
+    <constructor-arg ref="leadRepository"/>    <!-- вручную -->
+</bean>
+<bean id="leadRepository" class="ru.mentee.crm.repository.InMemoryLeadRepository"/>
+```
+
+**С COC (Spring Boot, сегодня):**
+
+```java
+
+@Service
+public class LeadService {
+  private final LeadRepository repository;
+
+  public LeadService(LeadRepository r) {
+    this.repository = r;
+  }
+}
+// Spring САМ найдёт LeadRepository и внедрит — без XML и конфигурации
+```
+
+**Аналогия:** в ресторане без COC — ты заказываешь воду, хлеб, салфетку. С COC — садишься за столик, официант уже знает:
+вода без газа, приборы справа. 90% гостей довольны без лишних слов.
+
 
 
 
