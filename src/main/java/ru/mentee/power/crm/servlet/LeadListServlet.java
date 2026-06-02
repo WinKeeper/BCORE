@@ -1,10 +1,15 @@
 package ru.mentee.power.crm.servlet;
 
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import jakarta.servlet.ServletContext;
+import gg.jte.ContentType;
+import gg.jte.TemplateEngine;
+import gg.jte.output.WriterOutput;
+import gg.jte.resolve.DirectoryCodeResolver;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -16,58 +21,40 @@ import ru.mentee.power.crm.service.LeadService;
 @WebServlet("/leads")
 public class LeadListServlet extends HttpServlet {
 
+  private TemplateEngine templateEngine;
+
+  @Override
+  public void init() throws ServletException {
+    Path templatePath = Path.of("src/main/jte");
+    // Сканер шаблонов: читает .jte файлы из папки при старте
+    DirectoryCodeResolver codeResolver = new DirectoryCodeResolver(templatePath);
+    // Создать движок: указать откуда брать шаблоны и тип контента (Html)
+    this.templateEngine = TemplateEngine.create(codeResolver, ContentType.Html);
+  }
+
+  void setTemplateEngine(TemplateEngine templateEngine) {
+    this.templateEngine = templateEngine;
+  }
+
   @Override
   protected void doGet(HttpServletRequest request, HttpServletResponse response)
       throws ServletException, IOException {
-    // TODO: Получить LeadService из ServletContext через getAttribute("$$$")
-    // Hint: используйте getServletContext().getAttribute("$$$") и приведите к LeadService
-    ServletContext context = getServletContext();
-    System.out.println("GET /leads request received");
-    LeadService service = (LeadService) context.getAttribute("leadService");
+
+    LeadService service = (LeadService) getServletContext().getAttribute("leadService");
     if (service == null) {
       throw new IllegalStateException("LeadService not found in ServletContext");
     }
-
-    // TODO: Вызвать leadService.findAll() и сохранить результат в локальной переменной List<Lead> leads
     List<Lead> leads = service.findAll();
-    System.out.println("Found " + leads.size() + " leads");
 
-    // TODO: Установить Content-Type через response.setContentType("$$$$")
+    Map<String, Object> model = new HashMap<>();
+    model.put("leads", leads);
+
     response.setContentType("text/html; charset=UTF-8");
     response.setStatus(200);
 
-    // TODO: Получить PrintWriter через response.getWriter()
-    PrintWriter writer = response.getWriter();
-
-    // TODO: Сгенерировать HTML таблицу через writer.println() (см. Шаг 3)
-    writer.println("<!DOCTYPE html>");
-    writer.println("<html>");
-    writer.println("<head><title>CRM - Lead List</title></head>");
-    writer.println("<body>");
-    writer.println("<h1>Lead List</h1>");
-    writer.println("<table border='1'>");
-    writer.println("<thead>");
-    writer.println("<tr>");
-    writer.println("<th>Email</th>");
-    writer.println("<th>Company</th>");
-    writer.println("<th>Status</th>");
-    writer.println("</tr>");
-    writer.println("</thead>");
-    writer.println("<tbody>");
-
-    for (Lead lead : leads) {
-      writer.println("<tr>");
-      writer.println("<td>" + lead.email() + "</td>");
-      writer.println("<td>" + lead.company() + "</td>");
-      writer.println("<td>" + lead.status() + "</td>");
-      writer.println("</tr>");
-    }
-
-    writer.println("</tbody>");
-    writer.println("</table>");
-    writer.println("</body>");
-    writer.println("</html>");
+    templateEngine.render("leads/list.jte", model, new WriterOutput(response.getWriter()));
 
     System.out.println("Response sent successfully");
   }
+
 }

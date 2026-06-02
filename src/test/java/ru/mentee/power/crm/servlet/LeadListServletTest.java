@@ -1,14 +1,16 @@
 package ru.mentee.power.crm.servlet;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.UUID;
 
+import gg.jte.TemplateEngine;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,8 +39,10 @@ class LeadListServletTest {
   @Mock
   private LeadService leadService;
 
+  @Mock
+  private TemplateEngine templateEngine;
+
   private LeadListServlet servlet;
-  private StringWriter responseWriter;
 
   @BeforeEach
   void setUp() {
@@ -48,12 +52,12 @@ class LeadListServletTest {
         return servletContext;
       }
     };
-    responseWriter = new StringWriter();
+    servlet.setTemplateEngine(templateEngine);
   }
 
   @Test
-  @DisplayName("Should return HTML table with leads")
-  void shouldReturnHtmlTableWithLeads() throws Exception {
+  @DisplayName("Should render template with leads")
+  void shouldRenderTemplateWithLeads() throws Exception {
     Lead firstLead = new Lead(UUID.randomUUID(), "ivan@mail.ru",
         "+7123", "TechCorp", LeadStatus.NEW);
     Lead secondLead = new Lead(UUID.randomUUID(), "olga@mail.ru",
@@ -61,35 +65,31 @@ class LeadListServletTest {
 
     when(servletContext.getAttribute("leadService")).thenReturn(leadService);
     when(leadService.findAll()).thenReturn(List.of(firstLead, secondLead));
-    when(response.getWriter()).thenReturn(new PrintWriter(responseWriter));
 
     servlet.doGet(request, response);
 
-    String html = responseWriter.toString();
-    assertThat(html).contains("<h1>Lead List</h1>");
-    assertThat(html).contains("<td>ivan@mail.ru</td>");
-    assertThat(html).contains("<td>TechCorp</td>");
-    assertThat(html).contains("<td>NEW</td>");
-    assertThat(html).contains("<td>olga@mail.ru</td>");
-    assertThat(html).contains("<td>StartupLab</td>");
-    assertThat(html).contains("<td>CONTACTED</td>");
-    assertThat(html).contains("</table>");
+    verify(templateEngine).render(
+        eq("leads/list.jte"),
+        argThat(model -> model.containsKey("leads")
+            && ((List<?>) model.get("leads")).size() == 2),
+        any()
+    );
   }
 
   @Test
-  @DisplayName("Should return empty table when no leads")
-  void shouldReturnEmptyTableWhenNoLeads() throws Exception {
+  @DisplayName("Should render template with empty list")
+  void shouldRenderTemplateWithEmptyList() throws Exception {
     when(servletContext.getAttribute("leadService")).thenReturn(leadService);
     when(leadService.findAll()).thenReturn(List.of());
-    when(response.getWriter()).thenReturn(new PrintWriter(responseWriter));
 
     servlet.doGet(request, response);
 
-    String html = responseWriter.toString();
-    assertThat(html).contains("<h1>Lead List</h1>");
-    assertThat(html).contains("<tbody>");
-    assertThat(html).contains("</tbody>");
-    assertThat(html).doesNotContain("<td>");
+    verify(templateEngine).render(
+        eq("leads/list.jte"),
+        argThat(model -> model.containsKey("leads")
+            && ((List<?>) model.get("leads")).isEmpty()),
+        any()
+    );
   }
 
   @Test
