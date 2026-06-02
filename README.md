@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                                        |---|---|---|
+                                                                              |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,7 +526,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                                        |---|---|---|
+                                                                              |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -1189,9 +1189,17 @@ sendResponseHeaders(404,-1);         // не найдено
 
 ```java
 Context ctx = tomcat.addContext("", new File(".").getAbsolutePath());  // ① создать контекст
-ctx.getServletContext().setAttribute("leadService", service);          // ② положить LeadService
-tomcat.addServlet(ctx, "LeadListServlet", new LeadListServlet());      // ③ зарегистрировать сервлет
-ctx.addServletMappingDecoded("/leads", "LeadListServlet");             // ④ путь → сервлет
+ctx.
+
+getServletContext().
+
+setAttribute("leadService",service);          // ② положить LeadService
+tomcat.
+
+addServlet(ctx, "LeadListServlet",new LeadListServlet());      // ③ зарегистрировать сервлет
+    ctx.
+
+addServletMappingDecoded("/leads","LeadListServlet");             // ④ путь → сервлет
 ```
 
 - ① `addContext` — создаёт контекст веб-приложения
@@ -1229,19 +1237,121 @@ List<Lead> leads = service.findAll();                                     // ⑦
                           ▼ Браузер ← 200 OK + HTML
 ```
 
-Контекст — это общая «память» приложения. **Main кладёт объект при старте, сервлеты достают при каждом запросе.** Один объект `LeadService` на всё приложение.
+Контекст — это общая «память» приложения. **Main кладёт объект при старте, сервлеты достают при каждом запросе.** Один
+объект `LeadService` на всё приложение.
 
 #### Ключ `"leadService"`: почему регистр важен
 
 ```java
 // Main.java:
-ctx.getServletContext().setAttribute("LeadService", service);  // ← большая L
+ctx.getServletContext().
+
+setAttribute("LeadService",service);  // ← большая L
 
 // LeadListServlet.java:
-context.getAttribute("leadService");  // ← маленькая l → null → IllegalStateException!
+context.
+
+getAttribute("leadService");  // ← маленькая l → null → IllegalStateException!
 ```
 
 `"LeadService"` ≠ `"leadService"`. Если ключи не совпадают посимвольно — сервлет не найдёт сервис.
+
+## BCORE-13: Подключаем JTE шаблонизатор + Tailwind CSS
+
+### Рефакторинг: от сырого HTML к шаблонам
+
+**Было (BCORE-12):** 35 строк `writer.println("<html>...")` — Java и HTML смешаны в коде.
+
+**Стало (JTE):** сервлет только готовит данные, рендеринг делегирован в `.jte` файлы.
+
+#### Что изменилось в LeadListServlet
+
+```java
+// ─── init(): подготовка шаблонного движка ОДИН раз при старте ───
+@Override
+public void init() {
+  Path templatePath = Path.of("src/main/jte");
+  // Сканер шаблонов: читает .jte файлы из указанной папки при старте
+  DirectoryCodeResolver codeResolver = new DirectoryCodeResolver(templatePath);
+  // Создать движок: указать откуда брать шаблоны и тип контента (Html)
+  this.templateEngine = TemplateEngine.create(codeResolver, ContentType.Html);
+}
+
+// ─── doGet(): подготовка данных + делегация рендеринга ───
+@Override
+protected void doGet(...) {
+  List<Lead> leads = service.findAll();              // ① бизнес-логика
+
+  Map<String, Object> model = new HashMap<>();        // ② упаковать данные в модель
+  model.put("leads", leads);                         //    ключ "leads" → список
+
+  templateEngine.render(                             // ③ делегировать рендеринг
+      "leads/list.jte", model,
+      new WriterOutput(response.getWriter())
+  );
+}
+```
+
+#### Структура шаблонов
+
+**`layout/main.jte`** — макет страницы (общий header/footer для всех страниц):
+
+```jte
+@param gg.jte.Content content     // параметр: контент, который вставится в макет
+
+<!DOCTYPE html>
+<html>
+<head><script src="tailwindcss"></script></head>
+<body>
+    <header>CRM System</header>
+    <main>${content}</main>        // ← сюда подставится содержимое из list.jte
+    <footer>&copy; 2025 CRM</footer>
+</body></html>
+```
+
+**`leads/list.jte`** — только контент (таблица с лидами):
+
+```jte
+@param List<Lead> leads            // данные из модели
+
+@template.layout.main(content = @`  // «оберни меня в main.jte»
+    <table>
+        @for(var lead : leads)      // цикл прямо в шаблоне
+            <tr>
+                <td>${lead.email()}</td>    // интерполяция: ${...} вместо + ...
+                <td>${lead.company()}</td>
+                <td>${lead.status()}</td>
+            </tr>
+        @endfor
+    </table>
+`)
+```
+
+#### Поток вызова
+
+```
+GET /leads → LeadListServlet.doGet()
+  ├─ ① service.findAll() → List<Lead>
+  ├─ ② model.put("leads", leads)
+  └─ ③ templateEngine.render("leads/list.jte", model, output)
+        ├─ list.jte → @template.layout.main(content = ...)
+        │     └─ main.jte → <header> + ${content} + <footer>
+        │           └─ ${content} = таблица из list.jte
+        └─ WriterOutput → response.getWriter() → браузер
+```
+
+#### Сравнение
+
+| Аспект             | Было (ручной HTML)                  | Стало (JTE)                                      |
+|--------------------|-------------------------------------|--------------------------------------------------|
+| Где HTML           | Строки в `writer.println()`         | Файлы `.jte` — отдельно от Java                  |
+| Циклы              | `for` в Java                        | `@for` в шаблоне                                 |
+| Вывод значения     | `"<td>" + lead.email() + "</td>"`   | `${lead.email()}` — интерполяция                 |
+| Header/Footer      | Дублировался в каждом сервлете      | Один `main.jte` для всех                         |
+| Строк в сервлете   | ~35 строк HTML                      | **1 строка**: `templateEngine.render(...)`       |
+| Инициализация      | Не нужна                            | `init()` — `TemplateEngine.create(...)` один раз |
+| Дизайнер           | ❌ Надо знать Java                   | ✅ Только HTML/Tailwind                           |
+| Производительность | `.println()` — I/O на каждую строку | JTE предкомпилирует шаблон → быстрее             |
 
 ---
 

@@ -3,6 +3,7 @@ plugins {
     id 'application'
     id 'checkstyle'
     id 'jacoco'
+    id 'gg.jte.gradle' version '3.1.16' // BCORE-13 Добавить JTE plugin
 }
 
 group = 'ru.mentee.power'
@@ -14,6 +15,7 @@ ext {
     lombokVersion = '1.18.46'  // BCORE-4
     servletVersion = '6.1.0' // BCORE-12
     tomcatVersion = '11.0.22' // BCORE-12
+    jteVersion = '3.1.16' // BCORE-13
 }
 
 java {
@@ -23,7 +25,7 @@ java {
 }
 
 application {
-    mainClass = 'ru.mentee.power.crm.Main'
+    mainClass = 'ru.mentee.power.crm.web.Main'
 }
 
 repositories {
@@ -41,6 +43,8 @@ dependencies {
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    implementation "gg.jte:jte:${jteVersion}"
+    implementation "gg.jte:jte-runtime:${jteVersion}"
 }
 
 // Настройка тестов
@@ -104,6 +108,12 @@ jacocoTestCoverageVerification {
 // Интеграция проверок в lifecycle
 check {
     dependsOn jacocoTestCoverageVerification
+}
+
+jte {
+    sourceDirectory = file("src/main/jte").toPath()
+    contentType = "Html"
+    binaryStaticContent = false
 }
 
 // Для вызова ./gradlew ci вместо огромной строки
