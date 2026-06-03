@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                                              |---|---|---|
+                                                                                             |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,7 +526,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                                              |---|---|---|
+                                                                                             |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -1352,6 +1352,214 @@ GET /leads → LeadListServlet.doGet()
 | Инициализация      | Не нужна                            | `init()` — `TemplateEngine.create(...)` один раз |
 | Дизайнер           | ❌ Надо знать Java                   | ✅ Только HTML/Tailwind                           |
 | Производительность | `.println()` — I/O на каждую строку | JTE предкомпилирует шаблон → быстрее             |
+
+## BCORE-14: Переходим на Spring Boot
+
+### Точка входа
+
+```java
+
+@SpringBootApplication
+public class Application {
+  public static void main(String[] args) {
+    SpringApplication.run(Application.class, args);
+  }
+}
+```
+
+Одна аннотация `@SpringBootApplication` заменяет три: `@Configuration` + `@ComponentScan` + `@EnableAutoConfiguration`.
+Одна строка `SpringApplication.run()` запускает весь процесс ниже.
+
+### Процесс запуска: 7 этапов
+
+Когда вызывается `SpringApplication.run()`, происходит многоступенчатый процесс:
+
+1. **Создание ApplicationContext** — Spring IoC контейнер (пустой «мешок» для бинов)
+2. **Загрузка конфигурации** — `application.yml` / `application.properties` (порт, профили, настройки БД)
+3. **Auto-configuration** — `@ConditionalOnClass` / `@ConditionalOnBean` определяют, какие бины создавать (наличие
+   `starter-web` в classpath → авто-создание Tomcat, `DispatcherServlet`, Jackson)
+4. **Component Scanning** — `@ComponentScan` находит `@Service`, `@Repository`, `@Controller` и регистрирует их как бины
+5. **Dependency Injection** — Spring связывает бины через конструкторы, `@Autowired`, `@Value`
+6. **Запуск embedded сервера** — `ServletWebServerApplicationContext` создаёт Tomcat, регистрирует `DispatcherServlet`,
+   стартует на порту (обычно `:8080` или указанном в настройках)
+7. **ApplicationReadyEvent** — приложение готово принимать HTTP-запросы (2–5 секунд от старта)
+
+### 7 этапов подробно
+
+**① Создание ApplicationContext.**
+
+Spring создаёт **пустой контейнер** — объект, который будет хранить все бины. Пока внутри ничего нет. Это как пустой склад: стеллажи готовы, но товаров ещё не завезли.
+
+```java
+// Внутри SpringApplication.run() происходит примерно это:
+ApplicationContext context = new AnnotationConfigApplicationContext();
+// Пока пустой — ни одного бина. Сейчас начнём заполнять.
+```
+
+Тип контекста зависит от приложения: для web — `ServletWebServerApplicationContext` (со встроенным Tomcat), для batch — другой, для reactive — третий. Spring Boot сам выбирает нужный по наличию библиотек в classpath.
+
+**② Загрузка application.yml.**
+
+Spring читает `src/main/resources/application.yml`. Находит настройки и запоминает их в объекте `Environment`.
+
+Твой `application.yml`:
+```yaml
+server:
+  port: 8081
+spring:
+  application:
+    name: mentee-power-crm
+```
+
+Что происходит внутри:
+```java
+// Spring парсит YAML и кладёт в Environment:
+environment.getProperty("server.port");           // → "8081"
+environment.getProperty("spring.application.name"); // → "mentee-power-crm"
+```
+
+Потом, когда очередь дойдёт до запуска Tomcat, тот спросит: «Какой порт?» → `environment.getProperty("server.port")` → `8081`. Никакого хардкода `tomcat.setPort(8081)` — всё из внешнего файла.
+
+**③ Auto-configuration.**
+
+Spring сканирует **classpath** и смотрит, какие библиотеки подключены. Для каждой найденной применяет правила из `spring-boot-autoconfigure`.
+
+Твой случай: в `build.gradle` есть `spring-boot-starter-web`. Это тянет за собой Tomcat, Jackson, Spring MVC. Spring видит их в classpath и думает:
+
+```
+classpath содержит:
+  ✅ jakarta.servlet.Servlet.class        → нужен веб-сервер
+  ✅ org.apache.catalina.startup.Tomcat   → встроенный Tomcat
+  ✅ com.fasterxml.jackson.databind       → Jackson для JSON
+
+Результат авто-конфигурации:
+  → Создать бин TomcatServletWebServerFactory (фабрика Tomcat)
+  → Создать бин DispatcherServlet (точка входа для всех HTTP-запросов)
+  → Создать бин ObjectMapper (Jackson — сериализация Java → JSON)
+```
+
+Как это решается внутри:
+```java
+@Configuration
+@ConditionalOnClass({Servlet.class, Tomcat.class})
+@ConditionalOnMissingBean(EmbeddedWebServerFactory.class)
+public class EmbeddedWebServerAutoConfiguration {
+    @Bean
+    public TomcatServletWebServerFactory tomcatFactory() {
+        return new TomcatServletWebServerFactory();  // Spring создал сам
+    }
+}
+```
+
+Ты не писал `new Tomcat()`, не настраивал порт, не регистрировал `DispatcherServlet`. Spring Boot сделал это сам, потому что увидел `starter-web` в зависимостях.
+
+**④ Component Scanning.**
+
+Spring сканирует все классы в пакете `ru.mentee.power.crm` и подпакетах. Ищет аннотации-стереотипы:
+
+| Аннотация | Что это | Пример из проекта |
+|---|---|---|
+| `@Service` | Бизнес-логика | `LeadService` |
+| `@Repository` | Доступ к данным | `InMemoryLeadRepository` |
+| `@RestController` | HTTP-обработчики (JSON) | `LeadController` |
+| `@Component` | Общий бин | Любой utility-класс |
+
+Что происходит:
+```
+Сканирование пакета ru.mentee.power.crm...
+  ├── spring/Application.java              → @SpringBootApplication (точка входа)
+  ├── spring/controller/LeadController.java → @RestController → СОЗДАТЬ БИН "leadController"
+  ├── service/LeadService.java             → без @Service → НЕ создавать
+  └── repository/InMemoryLeadRepository.java → без @Repository → НЕ создавать
+```
+
+На этом этапе `LeadController` регистрируется как бин (потому что `@RestController` включает `@Component`). `LeadService` и `InMemoryLeadRepository` — пока нет.
+
+**⑤ Dependency Injection.**
+
+Spring обходит все созданные бины и смотрит: «кому что нужно для работы?» Если у бина конструктор с параметрами — Spring ищет подходящий бин для каждого параметра и передаёт.
+
+Сейчас `LeadController` пустой — нет конструктора с параметрами, нечего внедрять. Но когда появится:
+
+```java
+@RestController
+public class LeadController {
+    private final LeadService service;
+
+    public LeadController(LeadService service) {  // Spring видит: «нужен LeadService!»
+        this.service = service;                    // ищет бин в контексте → внедряет
+    }
+}
+```
+
+Если `LeadService` помечен `@Service` — Spring создаст его первым, а потом передаст в `LeadController`. Если аннотации нет — ошибка: «No qualifying bean of type LeadService».
+
+**⑥ Запуск embedded сервера.**
+
+`ServletWebServerApplicationContext` создаёт экземпляр Tomcat прямо внутри JVM (не отдельный процесс):
+
+```java
+// Внутри Spring Boot (упрощённо):
+Tomcat tomcat = new Tomcat();
+tomcat.setPort(environment.getProperty("server.port", 8080)); // → 8081 из application.yml
+tomcat.getServer().start();
+```
+
+Параллельно регистрируется `DispatcherServlet` — центральный сервлет, который принимает ВСЕ HTTP-запросы и маршрутизирует их по контроллерам (`@GetMapping`, `@PostMapping`).
+
+Порт **8081** (из `application.yml`), а не 8080. Поэтому ручной Tomcat из `Main.java` на 8080 и Spring Boot на 8081 работают одновременно без конфликта.
+
+**⑦ ApplicationReadyEvent.**
+
+Финальный этап. Spring публикует событие `ApplicationReadyEvent` — сигнал «всё готово, можно работать». В консоли появляется:
+
+```
+Started Application in 2.5 seconds
+```
+
+С этого момента все HTTP-запросы обрабатываются: `DispatcherServlet` → нужный контроллер → ответ.
+
+### Общая схема запуска SpringApplication.run()
+
+```
+SpringApplication.run()
+    │
+    ▼
+① Создание пустого ApplicationContext
+    │
+    ▼
+② Загрузка application.yml → Environment (порт, имя приложения)
+    │
+    ▼
+③ Auto-configuration: classpath scan
+    │
+    ├── Найден spring-boot-starter-web
+    │     ├── Создать TomcatServletWebServerFactory
+    │     ├── Создать DispatcherServlet
+    │     └── Создать Jackson ObjectMapper
+    │
+    ▼
+④ Component Scanning: поиск @RestController, @Service, @Repository
+    │
+    ▼
+⑤ Dependency Injection: связывание бинов через конструкторы
+    │
+    ▼
+⑥ Запуск Embedded Tomcat на порту из application.yml (8081)
+    │
+    ▼
+⑦ ApplicationReadyEvent → ГОТОВО принимать HTTP-запросы
+```
+
+### Что это даёт vs ручной Main.java
+
+|                       | Ручной Main.java (BCORE-13)                | Spring Boot (BCORE-14)                        |
+|-----------------------|--------------------------------------------|-----------------------------------------------|
+| Создание Tomcat       | `new Tomcat(); tomcat.setPort(8080)`       | Автоматически — один `@SpringBootApplication` |
+| Регистрация сервлетов | `tomcat.addServlet(...)` вручную           | Автоматически — `@WebServlet` сканируется     |
+| Создание бинов        | `new InMemoryLeadRepository()` в Main.java | `@Repository` → Spring сам создаст и внедрит  |
+| Конфигурация          | Хардкод в Java                             | `application.yml` — внешний файл              |
+| Строк в точке входа   | ~30 строк Main.java                        | **3 строки** Application.java                 |
 
 ---
 

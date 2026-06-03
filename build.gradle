@@ -4,6 +4,9 @@ plugins {
     id 'checkstyle'
     id 'jacoco'
     id 'gg.jte.gradle' version '3.1.16' // BCORE-13 Добавить JTE plugin
+    id 'org.springframework.boot' version '4.0.6' // BCORE-14
+    // id 'org.springframework.boot' version '3.5.7' // BCORE-14
+    id 'io.spring.dependency-management' version '1.1.7' // BCORE-14
 }
 
 group = 'ru.mentee.power'
@@ -16,6 +19,7 @@ ext {
     servletVersion = '6.1.0' // BCORE-12
     tomcatVersion = '11.0.22' // BCORE-12
     jteVersion = '3.1.16' // BCORE-13
+    springBootVersion = '4.0.6' // BCORE-14
 }
 
 java {
@@ -33,6 +37,8 @@ repositories {
 }
 
 dependencies {
+    implementation "org.springframework.boot:spring-boot-starter-web:${springBootVersion}" // BCORE-14
+    testImplementation 'org.springframework.boot:spring-boot-starter-test' // BCORE-14
     implementation "jakarta.servlet:jakarta.servlet-api:${servletVersion}" // BCORE-12
     implementation "org.apache.tomcat.embed:tomcat-embed-core:${tomcatVersion}" // BCORE-12
     testImplementation 'org.mockito:mockito-core:5.23.0' // BCORE-10
