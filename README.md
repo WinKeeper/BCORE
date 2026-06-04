@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                                                                |---|---|---|
+                                                                                                   |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,7 +526,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                                                                |---|---|---|
+                                                                                                   |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -1092,6 +1092,37 @@ Checkpoint 3: Понимание DI
     [X] Понимаю зачем нужен mock
     [X] Понимаю что такое IoC
 
+# Сравнение: new внутри vs DI через конструктор
+
+## BAD: new InMemoryLeadRepository() внутри класса
+
+```java
+public class LeadService {
+  // Тесная связанность!
+  private final LeadRepository repository = new InMemoryLeadRepository();
+}
+```
+
+## GOOD: DI через конструктор
+
+```java
+public class LeadService {
+  private final LeadRepository repository;
+
+  // Передаём ссылку через конструктор
+  public LeadService(LeadRepository repository) {
+    this.repository = repository;
+  }
+}
+```
+
+Преимущества:
+
+    В тестах передаём mock(LeadRepository.class)
+    В production передаём InMemoryLeadRepository
+    В будущем передаём JpaLeadRepository (Sprint 7)
+    Зависимость явная — видно в конструкторе
+
 ## BCORE-11: HelloCrmServer — HTTP-обработка запросов
 
 ### HelloHandler: стандартное vs проектное
@@ -1591,17 +1622,18 @@ SpringApplication.run()
 
 ### Что изменилось с BCORE-14
 
-BCORE-14 — каркас: `@SpringBootApplication` + `application.yml` + бины. Сервер запускается, но HTTP-запросы обрабатывать некому.
+BCORE-14 — каркас: `@SpringBootApplication` + `application.yml` + бины. Сервер запускается, но HTTP-запросы обрабатывать
+некому.
 
 BCORE-15 добавляет контроллер и ViewResolver:
 
-| | BCORE-14 (скелет) | BCORE-15 (контроллер) |
-|---|---|---|
-| HTTP-запросы | Whitelabel Error Page на все URL | `/leads` → HTML-таблица с лидами |
-| Контроллер | Пустая заглушка | `@Controller` с `@GetMapping("/leads")` |
-| View | Не было | JTE ViewResolver → `leads/list.jte` |
-| Тестовые данные | Нет | `@Bean CommandLineRunner` наполняет 5 лидов |
-| Сервер | Запускается | Запускается и ОТВЕЧАЕТ |
+|                 | BCORE-14 (скелет)                | BCORE-15 (контроллер)                       |
+|-----------------|----------------------------------|---------------------------------------------|
+| HTTP-запросы    | Whitelabel Error Page на все URL | `/leads` → HTML-таблица с лидами            |
+| Контроллер      | Пустая заглушка                  | `@Controller` с `@GetMapping("/leads")`     |
+| View            | Не было                          | JTE ViewResolver → `leads/list.jte`         |
+| Тестовые данные | Нет                              | `@Bean CommandLineRunner` наполняет 5 лидов |
+| Сервер          | Запускается                      | Запускается и ОТВЕЧАЕТ                      |
 
 ### Путь HTTP-запроса: от браузера до JTE-шаблона
 
@@ -1645,59 +1677,71 @@ JTE Template: leads/list.jte
 
 #### По шагам с привязкой к коду
 
-| Шаг | Где | Код | Что делает |
-|---|---|---|---|
-| ① | Браузер → Tomcat | `GET /leads` | HTTP-запрос на порт 8081 |
-| ② | `DispatcherServlet` | авто-создан Spring Boot | Принимает **все** запросы, ищет обработчик |
-| ③ | `HandlerMapping` | ищет `@GetMapping("/leads")` | Находит `LeadController.showLeads` |
-| ④ | `LeadController:20-21` | `@GetMapping("/leads")` | Маппинг: метод обрабатывает GET `/leads` |
-| ⑤ | `LeadController:22` | `leadService.findAll()` | Делегация бизнес-логики в сервис |
-| ⑥ | `LeadController:23` | `model.addAttribute("leads", leads)` | Упаковка данных: ключ "leads" → список |
-| ⑦ | `LeadController:24` | `return "leads/list"` | Логическое имя view (НЕ путь к файлу!) |
-| ⑧ | `JteViewResolver` | `"leads/list"` → `leads/list.jte` | Преобразует имя в физический файл |
-| ⑨ | Рендеринг JTE | `@for(var lead : leads)` | Цикл по модели, генерация таблицы |
-| ⑩ | Ответ браузеру | `200 OK` + `<html>...</html>` | Готовая страница с таблицей лидов |
+| Шаг | Где                    | Код                                  | Что делает                                 |
+|-----|------------------------|--------------------------------------|--------------------------------------------|
+| ①   | Браузер → Tomcat       | `GET /leads`                         | HTTP-запрос на порт 8081                   |
+| ②   | `DispatcherServlet`    | авто-создан Spring Boot              | Принимает **все** запросы, ищет обработчик |
+| ③   | `HandlerMapping`       | ищет `@GetMapping("/leads")`         | Находит `LeadController.showLeads`         |
+| ④   | `LeadController:20-21` | `@GetMapping("/leads")`              | Маппинг: метод обрабатывает GET `/leads`   |
+| ⑤   | `LeadController:22`    | `leadService.findAll()`              | Делегация бизнес-логики в сервис           |
+| ⑥   | `LeadController:23`    | `model.addAttribute("leads", leads)` | Упаковка данных: ключ "leads" → список     |
+| ⑦   | `LeadController:24`    | `return "leads/list"`                | Логическое имя view (НЕ путь к файлу!)     |
+| ⑧   | `JteViewResolver`      | `"leads/list"` → `leads/list.jte`    | Преобразует имя в физический файл          |
+| ⑨   | Рендеринг JTE          | `@for(var lead : leads)`             | Цикл по модели, генерация таблицы          |
+| ⑩   | Ответ браузеру         | `200 OK` + `<html>...</html>`        | Готовая страница с таблицей лидов          |
 
 #### Почему return "leads/list" а не return "leads/list.jte"
 
-`ViewResolver` сам добавляет суффикс `.jte` (настроен в `application.yml`: `suffix: .jte`). Контроллер не знает, какой шаблонизатор используется — JTE, Thymeleaf, JSP. Он возвращает логическое имя, а ViewResolver превращает его в физический файл. Заменишь шаблонизатор — перепишешь только конфиг, не контроллер.
+`ViewResolver` сам добавляет суффикс `.jte` (настроен в `application.yml`: `suffix: .jte`). Контроллер не знает, какой
+шаблонизатор используется — JTE, Thymeleaf, JSP. Он возвращает логическое имя, а ViewResolver превращает его в
+физический файл. Заменишь шаблонизатор — перепишешь только конфиг, не контроллер.
 
 ### Ключевые концепции
 
-**DispatcherServlet.** Главный контроллер Spring MVC, принимает все HTTP-запросы и делегирует их обработку другим компонентам. Аналог паттерна Front Controller. Регистрируется автоматически через `@SpringBootApplication`, не нужно настраивать вручную. Источник: Spring MVC Reference Documentation.
+**DispatcherServlet.** Главный контроллер Spring MVC, принимает все HTTP-запросы и делегирует их обработку другим
+компонентам. Аналог паттерна Front Controller. Регистрируется автоматически через `@SpringBootApplication`, не нужно
+настраивать вручную. Источник: Spring MVC Reference Documentation.
 
-**@GetMapping.** Аннотация для маппинга HTTP GET-запросов на метод контроллера. Упрощённая версия `@RequestMapping(method = RequestMethod.GET)`. `@GetMapping("/leads")` означает: этот метод обрабатывает GET-запросы на URL `/leads`. Источник: Spring Framework Annotations Guide.
+**@GetMapping.** Аннотация для маппинга HTTP GET-запросов на метод контроллера. Упрощённая версия
+`@RequestMapping(method = RequestMethod.GET)`. `@GetMapping("/leads")` означает: этот метод обрабатывает GET-запросы на
+URL `/leads`. Источник: Spring Framework Annotations Guide.
 
-**Model.addAttribute.** Метод для добавления данных в модель, которые будут доступны в view. Первый параметр — ключ (String), второй — значение (Object). В JTE-шаблоне к атрибуту обращаются через `@param` с тем же именем: `@param List<Lead> leads`. Источник: Spring MVC Model API Documentation.
+**Model.addAttribute.** Метод для добавления данных в модель, которые будут доступны в view. Первый параметр — ключ (
+String), второй — значение (Object). В JTE-шаблоне к атрибуту обращаются через `@param` с тем же именем:
+`@param List<Lead> leads`. Источник: Spring MVC Model API Documentation.
 
-**ViewResolver.** Компонент Spring MVC, преобразующий логическое имя view (`"leads/list"`) в физический ресурс (файл `leads/list.jte`). Для JTE используется `JteViewResolver` (из `jte-spring-boot-starter-4`), для Thymeleaf — `ThymeleafViewResolver`, для JSP — `InternalResourceViewResolver`. Источник: Spring Boot View Technologies Guide.
+**ViewResolver.** Компонент Spring MVC, преобразующий логическое имя view (`"leads/list"`) в физический ресурс (файл
+`leads/list.jte`). Для JTE используется `JteViewResolver` (из `jte-spring-boot-starter-4`), для Thymeleaf —
+`ThymeleafViewResolver`, для JSP — `InternalResourceViewResolver`. Источник: Spring Boot View Technologies Guide.
 
 ### @Bean в Application.java — как Spring создаёт бин из метода
 
-В отличие от `@Service`/`@Repository` (где Spring сам создаёт объект класса), `@Bean` на методе говорит Spring: «вызови ЭТОТ метод — то, что он вернёт, станет бином».
+В отличие от `@Service`/`@Repository` (где Spring сам создаёт объект класса), `@Bean` на методе говорит Spring: «вызови
+ЭТОТ метод — то, что он вернёт, станет бином».
 
 **Шаг 1: объявление бина**
 
 ```java
+
 @Bean
 CommandLineRunner seedLeads(LeadService service) {
-    return args -> {
-        for (int i = 0; i < 5; i++) {
-            service.addLead("email" + i + "@mail.ru", "+7900" + i, "Company #" + i, LeadStatus.NEW);
-        }
-    };
+  return args -> {
+    for (int i = 0; i < 5; i++) {
+      service.addLead("email" + i + "@mail.ru", "+7900" + i, "Company #" + i, LeadStatus.NEW);
+    }
+  };
 }
 ```
 
 Разбор строки:
 
-| Часть | Что значит |
-|---|---|
-| `@Bean` | «Spring, создай объект по этому рецепту и положи в контекст» |
-| `CommandLineRunner` | **Тип возврата** — функциональный интерфейс с методом `run(String... args)` |
-| `seedLeads` | **Имя метода** → станет именем бина: `"seedLeads"` |
-| `(LeadService service)` | **Параметр** — Spring видит: «нужен LeadService» → ищет в контексте → находит `@Service LeadService` → передаёт |
-| `return args -> { ... }` | Возвращает **лямбду** — реализацию `CommandLineRunner` |
+| Часть                    | Что значит                                                                                                      |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------|
+| `@Bean`                  | «Spring, создай объект по этому рецепту и положи в контекст»                                                    |
+| `CommandLineRunner`      | **Тип возврата** — функциональный интерфейс с методом `run(String... args)`                                     |
+| `seedLeads`              | **Имя метода** → станет именем бина: `"seedLeads"`                                                              |
+| `(LeadService service)`  | **Параметр** — Spring видит: «нужен LeadService» → ищет в контексте → находит `@Service LeadService` → передаёт |
+| `return args -> { ... }` | Возвращает **лямбду** — реализацию `CommandLineRunner`                                                          |
 
 **Шаг 2: как Spring обрабатывает**
 
@@ -1716,7 +1760,8 @@ Spring видит @Bean на seedLeads
 
 **Шаг 3: когда выполняется**
 
-`CommandLineRunner` — специальный интерфейс. Spring вызывает `run(args)` у **всех** бинов этого типа сразу после создания контекста, но до приёма HTTP-запросов:
+`CommandLineRunner` — специальный интерфейс. Spring вызывает `run(args)` у **всех** бинов этого типа сразу после
+создания контекста, но до приёма HTTP-запросов:
 
 ```
 SpringApplication.run()
@@ -1728,18 +1773,20 @@ SpringApplication.run()
   → ApplicationReadyEvent
 ```
 
-**`args` в лямбде — это НЕ `String[] args` из main.** `SpringApplication.run()` пробрасывает аргументы командной строки во все `CommandLineRunner`-ы. Если запускаешь `java -jar app.jar --debug` → `args = ["--debug"]`. При обычном запуске → `args = []` (пустой массив).
+**`args` в лямбде — это НЕ `String[] args` из main.** `SpringApplication.run()` пробрасывает аргументы командной строки
+во все `CommandLineRunner`-ы. Если запускаешь `java -jar app.jar --debug` → `args = ["--debug"]`. При обычном запуске →
+`args = []` (пустой массив).
 
 ### Инициализация данных: где это делать
 
 `@Bean CommandLineRunner` — идиоматичный путь для сидирования тестовых данных в Spring Boot. Альтернативы:
 
-| Подход | Когда |
-|---|---|
-| `CommandLineRunner` | Тестовые данные при разработке, миграции БД |
-| `ApplicationRunner` | То же, но с парсингом аргументов в `ApplicationArguments` |
-| `@PostConstruct` на `@Configuration` | Одноразовая инициализация без доступа к `args` |
-| `@EventListener(ApplicationReadyEvent.class)` | Действия ПОСЛЕ полного старта (нужен готовый сервер) |
+| Подход                                        | Когда                                                     |
+|-----------------------------------------------|-----------------------------------------------------------|
+| `CommandLineRunner`                           | Тестовые данные при разработке, миграции БД               |
+| `ApplicationRunner`                           | То же, но с парсингом аргументов в `ApplicationArguments` |
+| `@PostConstruct` на `@Configuration`          | Одноразовая инициализация без доступа к `args`            |
+| `@EventListener(ApplicationReadyEvent.class)` | Действия ПОСЛЕ полного старта (нужен готовый сервер)      |
 
 ---
 
