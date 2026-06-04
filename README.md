@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                                                             |---|---|---|
+                                                                                                |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,7 +526,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                                                             |---|---|---|
+                                                                                                |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -1388,7 +1388,8 @@ public class Application {
 
 **① Создание ApplicationContext.**
 
-Spring создаёт **пустой контейнер** — объект, который будет хранить все бины. Пока внутри ничего нет. Это как пустой склад: стеллажи готовы, но товаров ещё не завезли.
+Spring создаёт **пустой контейнер** — объект, который будет хранить все бины. Пока внутри ничего нет. Это как пустой
+склад: стеллажи готовы, но товаров ещё не завезли.
 
 ```java
 // Внутри SpringApplication.run() происходит примерно это:
@@ -1396,13 +1397,15 @@ ApplicationContext context = new AnnotationConfigApplicationContext();
 // Пока пустой — ни одного бина. Сейчас начнём заполнять.
 ```
 
-Тип контекста зависит от приложения: для web — `ServletWebServerApplicationContext` (со встроенным Tomcat), для batch — другой, для reactive — третий. Spring Boot сам выбирает нужный по наличию библиотек в classpath.
+Тип контекста зависит от приложения: для web — `ServletWebServerApplicationContext` (со встроенным Tomcat), для batch —
+другой, для reactive — третий. Spring Boot сам выбирает нужный по наличию библиотек в classpath.
 
 **② Загрузка application.yml.**
 
 Spring читает `src/main/resources/application.yml`. Находит настройки и запоминает их в объекте `Environment`.
 
 Твой `application.yml`:
+
 ```yaml
 server:
   port: 8081
@@ -1412,19 +1415,25 @@ spring:
 ```
 
 Что происходит внутри:
+
 ```java
 // Spring парсит YAML и кладёт в Environment:
 environment.getProperty("server.port");           // → "8081"
-environment.getProperty("spring.application.name"); // → "mentee-power-crm"
+environment.
+
+getProperty("spring.application.name"); // → "mentee-power-crm"
 ```
 
-Потом, когда очередь дойдёт до запуска Tomcat, тот спросит: «Какой порт?» → `environment.getProperty("server.port")` → `8081`. Никакого хардкода `tomcat.setPort(8081)` — всё из внешнего файла.
+Потом, когда очередь дойдёт до запуска Tomcat, тот спросит: «Какой порт?» → `environment.getProperty("server.port")` →
+`8081`. Никакого хардкода `tomcat.setPort(8081)` — всё из внешнего файла.
 
 **③ Auto-configuration.**
 
-Spring сканирует **classpath** и смотрит, какие библиотеки подключены. Для каждой найденной применяет правила из `spring-boot-autoconfigure`.
+Spring сканирует **classpath** и смотрит, какие библиотеки подключены. Для каждой найденной применяет правила из
+`spring-boot-autoconfigure`.
 
-Твой случай: в `build.gradle` есть `spring-boot-starter-web`. Это тянет за собой Tomcat, Jackson, Spring MVC. Spring видит их в classpath и думает:
+Твой случай: в `build.gradle` есть `spring-boot-starter-web`. Это тянет за собой Tomcat, Jackson, Spring MVC. Spring
+видит их в classpath и думает:
 
 ```
 classpath содержит:
@@ -1439,32 +1448,36 @@ classpath содержит:
 ```
 
 Как это решается внутри:
+
 ```java
+
 @Configuration
 @ConditionalOnClass({Servlet.class, Tomcat.class})
 @ConditionalOnMissingBean(EmbeddedWebServerFactory.class)
 public class EmbeddedWebServerAutoConfiguration {
-    @Bean
-    public TomcatServletWebServerFactory tomcatFactory() {
-        return new TomcatServletWebServerFactory();  // Spring создал сам
-    }
+  @Bean
+  public TomcatServletWebServerFactory tomcatFactory() {
+    return new TomcatServletWebServerFactory();  // Spring создал сам
+  }
 }
 ```
 
-Ты не писал `new Tomcat()`, не настраивал порт, не регистрировал `DispatcherServlet`. Spring Boot сделал это сам, потому что увидел `starter-web` в зависимостях.
+Ты не писал `new Tomcat()`, не настраивал порт, не регистрировал `DispatcherServlet`. Spring Boot сделал это сам, потому
+что увидел `starter-web` в зависимостях.
 
 **④ Component Scanning.**
 
 Spring сканирует все классы в пакете `ru.mentee.power.crm` и подпакетах. Ищет аннотации-стереотипы:
 
-| Аннотация | Что это | Пример из проекта |
-|---|---|---|
-| `@Service` | Бизнес-логика | `LeadService` |
-| `@Repository` | Доступ к данным | `InMemoryLeadRepository` |
-| `@RestController` | HTTP-обработчики (JSON) | `LeadController` |
-| `@Component` | Общий бин | Любой utility-класс |
+| Аннотация         | Что это                 | Пример из проекта        |
+|-------------------|-------------------------|--------------------------|
+| `@Service`        | Бизнес-логика           | `LeadService`            |
+| `@Repository`     | Доступ к данным         | `InMemoryLeadRepository` |
+| `@RestController` | HTTP-обработчики (JSON) | `LeadController`         |
+| `@Component`      | Общий бин               | Любой utility-класс      |
 
 Что происходит:
+
 ```
 Сканирование пакета ru.mentee.power.crm...
   ├── spring/Application.java              → @SpringBootApplication (точка входа)
@@ -1473,26 +1486,30 @@ Spring сканирует все классы в пакете `ru.mentee.power.c
   └── repository/InMemoryLeadRepository.java → без @Repository → НЕ создавать
 ```
 
-На этом этапе `LeadController` регистрируется как бин (потому что `@RestController` включает `@Component`). `LeadService` и `InMemoryLeadRepository` — пока нет.
+На этом этапе `LeadController` регистрируется как бин (потому что `@RestController` включает `@Component`).
+`LeadService` и `InMemoryLeadRepository` — пока нет.
 
 **⑤ Dependency Injection.**
 
-Spring обходит все созданные бины и смотрит: «кому что нужно для работы?» Если у бина конструктор с параметрами — Spring ищет подходящий бин для каждого параметра и передаёт.
+Spring обходит все созданные бины и смотрит: «кому что нужно для работы?» Если у бина конструктор с параметрами — Spring
+ищет подходящий бин для каждого параметра и передаёт.
 
 Сейчас `LeadController` пустой — нет конструктора с параметрами, нечего внедрять. Но когда появится:
 
 ```java
+
 @RestController
 public class LeadController {
-    private final LeadService service;
+  private final LeadService service;
 
-    public LeadController(LeadService service) {  // Spring видит: «нужен LeadService!»
-        this.service = service;                    // ищет бин в контексте → внедряет
-    }
+  public LeadController(LeadService service) {  // Spring видит: «нужен LeadService!»
+    this.service = service;                    // ищет бин в контексте → внедряет
+  }
 }
 ```
 
-Если `LeadService` помечен `@Service` — Spring создаст его первым, а потом передаст в `LeadController`. Если аннотации нет — ошибка: «No qualifying bean of type LeadService».
+Если `LeadService` помечен `@Service` — Spring создаст его первым, а потом передаст в `LeadController`. Если аннотации
+нет — ошибка: «No qualifying bean of type LeadService».
 
 **⑥ Запуск embedded сервера.**
 
@@ -1501,17 +1518,26 @@ public class LeadController {
 ```java
 // Внутри Spring Boot (упрощённо):
 Tomcat tomcat = new Tomcat();
-tomcat.setPort(environment.getProperty("server.port", 8080)); // → 8081 из application.yml
-tomcat.getServer().start();
+tomcat.
+
+setPort(environment.getProperty("server.port", 8080)); // → 8081 из application.yml
+    tomcat.
+
+getServer().
+
+start();
 ```
 
-Параллельно регистрируется `DispatcherServlet` — центральный сервлет, который принимает ВСЕ HTTP-запросы и маршрутизирует их по контроллерам (`@GetMapping`, `@PostMapping`).
+Параллельно регистрируется `DispatcherServlet` — центральный сервлет, который принимает ВСЕ HTTP-запросы и
+маршрутизирует их по контроллерам (`@GetMapping`, `@PostMapping`).
 
-Порт **8081** (из `application.yml`), а не 8080. Поэтому ручной Tomcat из `Main.java` на 8080 и Spring Boot на 8081 работают одновременно без конфликта.
+Порт **8081** (из `application.yml`), а не 8080. Поэтому ручной Tomcat из `Main.java` на 8080 и Spring Boot на 8081
+работают одновременно без конфликта.
 
 **⑦ ApplicationReadyEvent.**
 
-Финальный этап. Spring публикует событие `ApplicationReadyEvent` — сигнал «всё готово, можно работать». В консоли появляется:
+Финальный этап. Spring публикует событие `ApplicationReadyEvent` — сигнал «всё готово, можно работать». В консоли
+появляется:
 
 ```
 Started Application in 2.5 seconds
@@ -1560,6 +1586,160 @@ SpringApplication.run()
 | Создание бинов        | `new InMemoryLeadRepository()` в Main.java | `@Repository` → Spring сам создаст и внедрит  |
 | Конфигурация          | Хардкод в Java                             | `application.yml` — внешний файл              |
 | Строк в точке входа   | ~30 строк Main.java                        | **3 строки** Application.java                 |
+
+## BCORE-15: Первый контроллер — от сервлета к Spring MVC
+
+### Что изменилось с BCORE-14
+
+BCORE-14 — каркас: `@SpringBootApplication` + `application.yml` + бины. Сервер запускается, но HTTP-запросы обрабатывать некому.
+
+BCORE-15 добавляет контроллер и ViewResolver:
+
+| | BCORE-14 (скелет) | BCORE-15 (контроллер) |
+|---|---|---|
+| HTTP-запросы | Whitelabel Error Page на все URL | `/leads` → HTML-таблица с лидами |
+| Контроллер | Пустая заглушка | `@Controller` с `@GetMapping("/leads")` |
+| View | Не было | JTE ViewResolver → `leads/list.jte` |
+| Тестовые данные | Нет | `@Bean CommandLineRunner` наполняет 5 лидов |
+| Сервер | Запускается | Запускается и ОТВЕЧАЕТ |
+
+### Путь HTTP-запроса: от браузера до JTE-шаблона
+
+Когда браузер открывает `http://localhost:8081/leads`, цепочка из 10 шагов:
+
+```
+Браузер: GET /leads
+    │
+    ▼
+DispatcherServlet (авто-создан Spring Boot)
+    │  «принимаю ВСЕ HTTP-запросы, ищу кому делегировать»
+    ▼
+HandlerMapping
+    │  «есть @GetMapping("/leads")?»
+    │  «✅ LeadController.showLeads()»
+    ▼
+LeadController.showLeads(Model model)
+    │
+    ├─ ① leadService.findAll()              // LeadController.java:22
+    │     └─ repository.findAll()             // LeadService.java:38
+    │          └─ HashMap.values() → List     // InMemoryLeadRepository.java:42
+    │
+    ├─ ② model.addAttribute("leads", list)  // LeadController.java:23
+    │     └─ ключ "leads" → данные для JTE
+    │
+    └─ ③ return "leads/list"                // LeadController.java:24
+          │  «это логическое имя view, не путь к файлу!»
+          ▼
+JteViewResolver (из jte-spring-boot-starter-4)
+    │  «"leads/list" → "leads/list.jte"»
+    │  «загрузить файл из src/main/jte/»
+    ▼
+JTE Template: leads/list.jte
+    │  @for(var lead : leads)
+    │  <td>${lead.email()}</td>
+    │  ...
+    │  ${content} → layout/main.jte (header/footer)
+    ▼
+200 OK + HTML → Браузер
+```
+
+#### По шагам с привязкой к коду
+
+| Шаг | Где | Код | Что делает |
+|---|---|---|---|
+| ① | Браузер → Tomcat | `GET /leads` | HTTP-запрос на порт 8081 |
+| ② | `DispatcherServlet` | авто-создан Spring Boot | Принимает **все** запросы, ищет обработчик |
+| ③ | `HandlerMapping` | ищет `@GetMapping("/leads")` | Находит `LeadController.showLeads` |
+| ④ | `LeadController:20-21` | `@GetMapping("/leads")` | Маппинг: метод обрабатывает GET `/leads` |
+| ⑤ | `LeadController:22` | `leadService.findAll()` | Делегация бизнес-логики в сервис |
+| ⑥ | `LeadController:23` | `model.addAttribute("leads", leads)` | Упаковка данных: ключ "leads" → список |
+| ⑦ | `LeadController:24` | `return "leads/list"` | Логическое имя view (НЕ путь к файлу!) |
+| ⑧ | `JteViewResolver` | `"leads/list"` → `leads/list.jte` | Преобразует имя в физический файл |
+| ⑨ | Рендеринг JTE | `@for(var lead : leads)` | Цикл по модели, генерация таблицы |
+| ⑩ | Ответ браузеру | `200 OK` + `<html>...</html>` | Готовая страница с таблицей лидов |
+
+#### Почему return "leads/list" а не return "leads/list.jte"
+
+`ViewResolver` сам добавляет суффикс `.jte` (настроен в `application.yml`: `suffix: .jte`). Контроллер не знает, какой шаблонизатор используется — JTE, Thymeleaf, JSP. Он возвращает логическое имя, а ViewResolver превращает его в физический файл. Заменишь шаблонизатор — перепишешь только конфиг, не контроллер.
+
+### Ключевые концепции
+
+**DispatcherServlet.** Главный контроллер Spring MVC, принимает все HTTP-запросы и делегирует их обработку другим компонентам. Аналог паттерна Front Controller. Регистрируется автоматически через `@SpringBootApplication`, не нужно настраивать вручную. Источник: Spring MVC Reference Documentation.
+
+**@GetMapping.** Аннотация для маппинга HTTP GET-запросов на метод контроллера. Упрощённая версия `@RequestMapping(method = RequestMethod.GET)`. `@GetMapping("/leads")` означает: этот метод обрабатывает GET-запросы на URL `/leads`. Источник: Spring Framework Annotations Guide.
+
+**Model.addAttribute.** Метод для добавления данных в модель, которые будут доступны в view. Первый параметр — ключ (String), второй — значение (Object). В JTE-шаблоне к атрибуту обращаются через `@param` с тем же именем: `@param List<Lead> leads`. Источник: Spring MVC Model API Documentation.
+
+**ViewResolver.** Компонент Spring MVC, преобразующий логическое имя view (`"leads/list"`) в физический ресурс (файл `leads/list.jte`). Для JTE используется `JteViewResolver` (из `jte-spring-boot-starter-4`), для Thymeleaf — `ThymeleafViewResolver`, для JSP — `InternalResourceViewResolver`. Источник: Spring Boot View Technologies Guide.
+
+### @Bean в Application.java — как Spring создаёт бин из метода
+
+В отличие от `@Service`/`@Repository` (где Spring сам создаёт объект класса), `@Bean` на методе говорит Spring: «вызови ЭТОТ метод — то, что он вернёт, станет бином».
+
+**Шаг 1: объявление бина**
+
+```java
+@Bean
+CommandLineRunner seedLeads(LeadService service) {
+    return args -> {
+        for (int i = 0; i < 5; i++) {
+            service.addLead("email" + i + "@mail.ru", "+7900" + i, "Company #" + i, LeadStatus.NEW);
+        }
+    };
+}
+```
+
+Разбор строки:
+
+| Часть | Что значит |
+|---|---|
+| `@Bean` | «Spring, создай объект по этому рецепту и положи в контекст» |
+| `CommandLineRunner` | **Тип возврата** — функциональный интерфейс с методом `run(String... args)` |
+| `seedLeads` | **Имя метода** → станет именем бина: `"seedLeads"` |
+| `(LeadService service)` | **Параметр** — Spring видит: «нужен LeadService» → ищет в контексте → находит `@Service LeadService` → передаёт |
+| `return args -> { ... }` | Возвращает **лямбду** — реализацию `CommandLineRunner` |
+
+**Шаг 2: как Spring обрабатывает**
+
+```
+Spring видит @Bean на seedLeads
+    │
+    ├── «Какие параметры у метода?» → (LeadService service)
+    │     └── Есть бин LeadService в контексте? → ✅ @Service → да, есть
+    │     └── Передаю: seedLeads(leadService)
+    │
+    ├── «Что возвращает метод?» → лямбду args -> { ... }
+    │     └── Тип: CommandLineRunner
+    │
+    └── Кладу лямбду в контекст как бин "seedLeads"
+```
+
+**Шаг 3: когда выполняется**
+
+`CommandLineRunner` — специальный интерфейс. Spring вызывает `run(args)` у **всех** бинов этого типа сразу после создания контекста, но до приёма HTTP-запросов:
+
+```
+SpringApplication.run()
+  → созданы все бины
+  → ApplicationContext готов
+  → вызов всех CommandLineRunner.run(args)
+       └── seedLeads.run(args) → 5 × service.addLead(...)
+  → Embedded Tomcat стартует
+  → ApplicationReadyEvent
+```
+
+**`args` в лямбде — это НЕ `String[] args` из main.** `SpringApplication.run()` пробрасывает аргументы командной строки во все `CommandLineRunner`-ы. Если запускаешь `java -jar app.jar --debug` → `args = ["--debug"]`. При обычном запуске → `args = []` (пустой массив).
+
+### Инициализация данных: где это делать
+
+`@Bean CommandLineRunner` — идиоматичный путь для сидирования тестовых данных в Spring Boot. Альтернативы:
+
+| Подход | Когда |
+|---|---|
+| `CommandLineRunner` | Тестовые данные при разработке, миграции БД |
+| `ApplicationRunner` | То же, но с парсингом аргументов в `ApplicationArguments` |
+| `@PostConstruct` на `@Configuration` | Одноразовая инициализация без доступа к `args` |
+| `@EventListener(ApplicationReadyEvent.class)` | Действия ПОСЛЕ полного старта (нужен готовый сервер) |
 
 ---
 
