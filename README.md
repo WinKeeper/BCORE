@@ -1093,9 +1093,9 @@ Checkpoint 3: Понимание DI
     [X] Понимаю зачем нужен mock
     [X] Понимаю что такое IoC
 
-# Сравнение: new внутри vs DI через конструктор
+### Сравнение: new внутри vs DI через конструктор
 
-## BAD: new InMemoryLeadRepository() внутри класса
+#### BAD: new InMemoryLeadRepository() внутри класса
 
 ```java
 public class LeadService {
@@ -1104,7 +1104,7 @@ public class LeadService {
 }
 ```
 
-## GOOD: DI через конструктор
+#### GOOD: DI через конструктор
 
 ```java
 public class LeadService {
