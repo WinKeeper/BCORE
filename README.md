@@ -492,7 +492,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                                                                   |---|---|---|
+                                                                                                      |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -526,7 +526,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                                                                   |---|---|---|
+                                                                                                      |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -1787,6 +1787,49 @@ SpringApplication.run()
 | `ApplicationRunner`                           | То же, но с парсингом аргументов в `ApplicationArguments` |
 | `@PostConstruct` на `@Configuration`          | Одноразовая инициализация без доступа к `args`            |
 | `@EventListener(ApplicationReadyEvent.class)` | Действия ПОСЛЕ полного старта (нужен готовый сервер)      |
+
+## BCORE-16: Сравнение стеков — Servlet vs Spring Boot
+
+### Результаты тестов (StackComparisonTest)
+
+| Метрика | Servlet (Main.java) | Spring Boot (Application.java) |
+|---|---|---|
+| **Время старта** | 414 ms | 2 497 ms |
+| **Разница** | — | ~6× медленнее |
+| **Строк кода** | ~40 (Main.java) | ~10 (Application.java + config) |
+| **Строк в точке входа** | ~25 строк (ручной Tomcat) | **3 строки** (`@SpringBootApplication` + `run()`) |
+| **Tomcat создание** | `new Tomcat()`, `setPort()`, `addContext()`, `addServlet()` — вручную | **Автоматически** (auto-config) |
+| **ViewResolver** | Вручную в `LeadListServlet.init()` | **Автоматически** (JTE Starter) |
+| **DI** | `new InMemoryLeadRepository()` + `new LeadService()` в Main.java | `@Service` + `@Repository` → Spring свяжет сам |
+| **Порт** | `8080` (хардкод) | `8081` (`application.yml`) |
+| **Запуск** | `./gradlew run` | `./gradlew bootRun` |
+
+### Trade-offs
+
+| | Servlet стек | Spring Boot |
+|---|---|---|
+| ✅ Быстрый старт | 414ms — почти мгновенно | 2.5s — приемлемо для деплоя |
+| ✅ Скорость разработки | Каждая строка — ручной код | Convention over Configuration |
+| ✅ Явный контроль | Видно всё: каждый бин, каждый порт | «Магия» авто-конфигурации |
+| ❌ Медленнее старт | — | ~6× медленнее (одноразово при деплое) |
+| ❌ Много boilerplate | ~25 строк настройки Tomcat | 3 строки |
+
+### Вывод
+
+Servlet стек — **простота и скорость старта** (414ms). Spring Boot — **convention over configuration** (2.5s). На практике Spring Boot побеждает: 2.5 секунды старта — один раз при деплое, а экономия десятков строк boilerplate — каждый день. Spring Boot «из коробки» даёт health checks, метрики, внешнюю конфигурацию — всё это пришлось бы писать вручную в Servlet стеке.
+
+### Как запустить сравнение
+
+```bash
+# Terminal 1: Servlet стек
+./gradlew run
+
+# Terminal 2: Spring Boot
+./gradlew bootRun
+
+# Terminal 3: тест
+./gradlew test --tests "ru.mentee.power.crm.StackComparisonTest"
+```
 
 ---
 
