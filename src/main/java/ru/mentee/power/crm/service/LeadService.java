@@ -12,15 +12,10 @@ import ru.mentee.power.crm.repository.LeadRepository;
 
 @Service
 public class LeadService {
-  // TODO - потом удалить комментарии
-  //  «в этом классе будет поле по имени repository,
-  // и в него можно положить ссылку на любой объект,
-  //  который реализует LeadRepository<Lead>»
+
   private final LeadRepository<Lead> repository;
 
-  // DI через конструктор!!! — не создаём repository внутри!
   public LeadService(LeadRepository<Lead> repository) {
-    // Передаём ссылку на repository во внутренний тип repository
     this.repository = repository;
   }
 

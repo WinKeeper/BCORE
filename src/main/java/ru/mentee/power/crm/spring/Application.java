@@ -15,7 +15,6 @@ public class Application {
     SpringApplication.run(Application.class, args);
   }
 
-  // Передаём лямбду в виде лидов в args main для заполнения таблицы лидов
   @Bean
   CommandLineRunner seedLeads(LeadService service) {
     return args -> {
