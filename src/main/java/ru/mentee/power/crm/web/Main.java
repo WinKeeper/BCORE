@@ -18,7 +18,6 @@ public class Main {
       leadService.addLead("Email" + i + "@mail.ru", "12345" + i, "Bcore-13 #" + i, LeadStatus.NEW);
     }
 
-    // test lead for XSS injection BCORE-13
     leadService.addLead("<script>alert('XSS')</script>", "12345", "test", LeadStatus.NEW);
 
     System.out.println("Lead count: " + leadService.findAll().size());
