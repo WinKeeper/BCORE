@@ -8,6 +8,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import ru.mentee.power.crm.model.Lead;
 import ru.mentee.power.crm.model.LeadStatus;
 import ru.mentee.power.crm.repository.InMemoryLeadRepository;
@@ -104,144 +106,44 @@ class LeadServiceTest {
     assertThat(result).isEmpty();
   }
 
-  @Test
-  void shouldReturnOnlyNewLeadsWhenFindStatusNew() {
-    // Given 10 лидов
+  private void seedStandardLeads() {
     for (int i = 0; i < 3; i++) {
-      service.addLead(
-          "NEW" + i + "@mail.ru",
-          "+7900" + i,
-          "Company #" + i,
-          LeadStatus.NEW
-      );
+      service.addLead("new" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.NEW);
     }
-    for (int j = 0; j < 5; j++) {
-      service.addLead(
-          "CONTACTED" + j + "@mail.ru",
-          "+7900" + j,
-          "Company #" + j,
-          LeadStatus.CONTACTED
-      );
+    for (int i = 0; i < 5; i++) {
+      service.addLead("contacted" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.CONTACTED);
     }
-    for (int k = 0; k < 2; k++) {
-      service.addLead(
-          "QUALIFIED" + k + "@mail.ru",
-          "+7900" + k,
-          "Company #" + k,
-          LeadStatus.QUALIFIED
-      );
+    for (int i = 0; i < 2; i++) {
+      service.addLead("qualified" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.QUALIFIED);
     }
+  }
 
-    // When
-    List<Lead> result = service.findByStatus(LeadStatus.NEW);
+  @ParameterizedTest
+  @CsvSource({
+      "NEW, 3",
+      "CONTACTED, 5",
+      "QUALIFIED, 2"
+  })
+  void shouldFilterLeadsByStatus(LeadStatus status, int expectedCount) {
+    seedStandardLeads();
 
-    // Then
-    assertThat(result).hasSize(3);
-    assertThat(result).allMatch(lead -> lead.status().equals(LeadStatus.NEW));
+    List<Lead> result = service.findByStatus(status);
+
+    assertThat(result).hasSize(expectedCount);
+    assertThat(result).allMatch(lead -> lead.status().equals(status));
   }
 
   @Test
-  void shouldReturnEmptyListWhenNoLeadsWithStatusQualified() {
-    // Given: repository с лидами, но НЕТ QUALIFIED
-    for (int i = 0; i < 3; i++) {
-      service.addLead(
-          "NEW" + i + "@mail.ru",
-          "+7900" + i,
-          "Company #" + i,
-          LeadStatus.NEW
-      );
-    }
-    for (int j = 0; j < 5; j++) {
-      service.addLead(
-          "CONTACTED" + j + "@mail.ru",
-          "+7900" + j,
-          "Company #" + j,
-          LeadStatus.CONTACTED
-      );
-    }
-    for (int k = 0; k < 2; k++) {
-      service.addLead(
-          "CONVERTED" + k + "@mail.ru",
-          "+7900" + k,
-          "Company #" + k,
-          LeadStatus.CONVERTED
-      );
-    }
-
-    // When: findByStatus(QUALIFIED)
-    List<Lead> result = service.findByStatus(LeadStatus.QUALIFIED);
-
-    // Then: пустой список (size 0)
-    assertThat(result).hasSize(0);
+  void shouldReturnEmptyListWhenNoLeads() {
+    assertThat(service.findByStatus(LeadStatus.NEW)).isEmpty();
   }
 
   @Test
-  void shouldReturnEmptyListWhenNoLeadsWithStatusContacted() {
-    // Given: repository с лидами, но НЕТ CONTACTED
-    for (int i = 0; i < 3; i++) {
-      service.addLead(
-          "NEW" + i + "@mail.ru",
-          "+7900" + i,
-          "Company #" + i,
-          LeadStatus.NEW
-      );
-    }
-    for (int j = 0; j < 5; j++) {
-      service.addLead(
-          "QUALIFIED" + j + "@mail.ru",
-          "+7900" + j,
-          "Company #" + j,
-          LeadStatus.QUALIFIED
-      );
-    }
-    for (int k = 0; k < 2; k++) {
-      service.addLead(
-          "CONVERTED" + k + "@mail.ru",
-          "+7900" + k,
-          "Company #" + k,
-          LeadStatus.CONVERTED
-      );
-    }
+  void shouldReturnEmptyListWhenNoLeadsWithStatusConverted() {
+    seedStandardLeads();
 
-    // When: findByStatus(CONTACTED)
-    List<Lead> result = service.findByStatus(LeadStatus.CONTACTED);
+    List<Lead> result = service.findByStatus(LeadStatus.CONVERTED);
 
-    // Then: пустой список (size 0)
-    assertThat(result).hasSize(0);
-  }
-
-  @Test
-  void shouldReturnEmptyListWhenNoLeadsWithStatusNew() {
-    // Given: repository с лидами, но НЕТ NEW
-    for (int i = 0; i < 3; i++) {
-      service.addLead(
-          "CONTACTED" + i + "@mail.ru",
-          "+7900" + i,
-          "Company #" + i,
-          LeadStatus.CONTACTED
-      );
-    }
-    for (int j = 0; j < 5; j++) {
-      service.addLead(
-          "QUALIFIED" + j + "@mail.ru",
-          "+7900" + j,
-          "Company #" + j,
-          LeadStatus.QUALIFIED
-      );
-    }
-    for (int k = 0; k < 2; k++) {
-      service.addLead(
-          "CONVERTED" + k + "@mail.ru",
-          "+7900" + k,
-          "Company #" + k,
-          LeadStatus.CONVERTED
-      );
-    }
-
-    // When: findByStatus(NEW)
-    List<Lead> result = service.findByStatus(LeadStatus.NEW);
-
-    // Then: пустой список (size 0)
     assertThat(result).hasSize(0);
   }
 
