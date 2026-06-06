@@ -8,6 +8,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import ru.mentee.power.crm.model.Lead;
 import ru.mentee.power.crm.model.LeadStatus;
 import ru.mentee.power.crm.repository.InMemoryLeadRepository;
@@ -103,4 +105,46 @@ class LeadServiceTest {
     // Then
     assertThat(result).isEmpty();
   }
+
+  private void seedStandardLeads() {
+    for (int i = 0; i < 3; i++) {
+      service.addLead("new" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.NEW);
+    }
+    for (int i = 0; i < 5; i++) {
+      service.addLead("contacted" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.CONTACTED);
+    }
+    for (int i = 0; i < 2; i++) {
+      service.addLead("qualified" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.QUALIFIED);
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "NEW, 3",
+      "CONTACTED, 5",
+      "QUALIFIED, 2"
+  })
+  void shouldFilterLeadsByStatus(LeadStatus status, int expectedCount) {
+    seedStandardLeads();
+
+    List<Lead> result = service.findByStatus(status);
+
+    assertThat(result).hasSize(expectedCount);
+    assertThat(result).allMatch(lead -> lead.status().equals(status));
+  }
+
+  @Test
+  void shouldReturnEmptyListWhenNoLeads() {
+    assertThat(service.findByStatus(LeadStatus.NEW)).isEmpty();
+  }
+
+  @Test
+  void shouldReturnEmptyListWhenNoLeadsWithStatusConverted() {
+    seedStandardLeads();
+
+    List<Lead> result = service.findByStatus(LeadStatus.CONVERTED);
+
+    assertThat(result).hasSize(0);
+  }
+
 }

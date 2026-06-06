@@ -18,15 +18,31 @@ public class Application {
   @Bean
   CommandLineRunner seedLeads(LeadService service) {
     return args -> {
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 3; i++) {
         service.addLead(
-            "email" + i + "@mail.ru",
+            "NEW" + i + "@mail.ru",
             "+7900" + i,
             "Company #" + i,
             LeadStatus.NEW
         );
       }
+      for (int j = 0; j < 5; j++) {
+        service.addLead(
+            "CONTACTED" + j + "@mail.ru",
+            "+7900" + j,
+            "Company #" + j,
+            LeadStatus.CONTACTED
+        );
+      }
+      for (int k = 0; k < 2; k++) {
+        service.addLead(
+            "QUALIFIED" + k + "@mail.ru",
+            "+7900" + k,
+            "Company #" + k,
+            LeadStatus.QUALIFIED
+        );
+      }
     };
   }
-
 }
+
