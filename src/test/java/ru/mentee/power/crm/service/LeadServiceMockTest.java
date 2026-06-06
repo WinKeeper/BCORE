@@ -93,6 +93,4 @@ class LeadServiceMockTest {
     inOrder.verify(mockRepository).findByEmail("test@example.com");
     inOrder.verify(mockRepository).save(any(Lead.class));
   }
-
-
 }
