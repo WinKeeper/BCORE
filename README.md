@@ -493,7 +493,7 @@ public class LeadService {
 2. **Бытовой пример: зарядка для телефона**
 
    | Компонент | В IT | Аналогия |
-                                                                                                                                       |---|---|---|
+                                                                                                                                             |---|---|---|
    | Интерфейс | `Repository<T>` | USB-C разъём |
    | Реализация 1 | `InMemoryLeadRepository` | Зарядка от PowerBank |
    | Реализация 2 | `PostgresLeadRepository` | Зарядка от розетки |
@@ -527,7 +527,7 @@ public class LeadService {
 4. **Что меняется при переключении на БД**
 
    | Компонент | Меняется | Не меняется |
-                                                                                                                                       |---|---|---|
+                                                                                                                                             |---|---|---|
    | `Repository<T>` | ❌ | ✅ Интерфейс остаётся |
    | `InMemoryLeadRepository` | ✅ Удаляется | ❌ |
    | `PostgresLeadRepository` | ✅ Добавляется | ❌ |
@@ -2087,6 +2087,345 @@ URL ?status=NEW → Spring ПАРСЕР → LeadStatus.NEW → Controller (HANDL
 цепочки.
 
 ## BCORE-18: Создание формы добавления лида через POST
+
+📚 Теория
+GET vs POST: семантика HTTP методов
+
+HTTP протокол определяет несколько методов (verbs) для разных типов операций. Два основных — GET и POST — различаются
+семантически и технически.
+
+GET предназначен для чтения данных, не изменяя состояние на сервере. Запрос GET должен быть идемпотентным: многократное
+выполнение даёт тот же результат. Параметры передаются в URL (query string): GET /leads?status=NEW. GET запросы
+кешируются браузерами, могут сохраняться в истории, безопасны для повторного выполнения (F5). Ограничение: длина URL
+ограничена (~2000 символов), нельзя передать большие объёмы данных или файлы.
+
+POST предназначен для изменения состояния: создание записи, обновление, удаление (хотя для последних есть
+PUT/PATCH/DELETE, но в HTML формах только GET и POST). Данные передаются в теле запроса (request body), не видны в URL.
+POST не идемпотентен: каждый запрос может создать новую запись. POST запросы НЕ кешируются, браузер предупреждает при
+повторной отправке ("Confirm Form Resubmission"). Нет ограничений по объёму данных, можно отправлять файлы (
+multipart/form-data).
+
+В CRM: просмотр списка лидов → GET /leads (чтение, безопасно), создание нового лида → POST /leads (изменение состояния,
+требует осторожности). Использование POST для чтения или GET для изменения — нарушение REST principles, приводит к
+проблемам: поисковики индексируют GET endpoint'ы (если там создание записи, будут дубликаты), кеширование POST
+бессмысленно.
+
+Важно: HTML формы поддерживают только GET и POST (method="get" или method="post"). Для PUT/PATCH/DELETE используют
+JavaScript (fetch) или скрытый input с названием метода (Spring поддерживает через HiddenHttpMethodFilter).
+HTML форма: структура и атрибуты
+
+HTML форма — способ сбора данных от пользователя для отправки на сервер. Базовая структура:
+
+```html
+
+<form action="/leads" method="post">
+    <input type="text" name="email"/>
+    <input type="text" name="company"/>
+    <button type="submit">Создать</button>
+</form>
+```
+
+action — URL, куда отправится запрос при submit (нажатие кнопки). Если не указан, отправляется на текущий URL.
+
+method — HTTP метод (get или post). По умолчанию get, но для создания данных всегда используем post.
+
+input элементы — поля ввода. Атрибут name критичен: он определяет ключ, под которым данные попадут на сервер. Spring MVC
+связывает name="email" с полем Lead.email(). Если name не указан, данные не отправятся.
+
+type атрибут input определяет поведение:
+
+- text — однострочный текст (email, имя)
+- email — валидация email формата браузером (не заменяет backend валидацию!)
+- number — только числа, браузер показывает спиннер
+- date — календарь для выбора даты
+- hidden — скрытое поле (например, CSRF токен)
+
+select элемент для выбора из списка:
+
+```html
+<select name="status">
+    <option value="NEW">Новый</option>
+    <option value="CONTACTED">Связались</option>
+</select>
+```
+
+Атрибут value определяет что отправится на сервер (не текст внутри option). Spring преобразует "NEW" в LeadStatus.NEW.
+
+button type="submit" отправляет форму. Альтернатива: <input type="submit" value="Создать">, но button гибче (можно
+вставить иконки, стилизовать).
+
+При submit браузер собирает все input с атрибутом name, кодирует в формат
+email=test@example.com&company=Acme&status=NEW, отправляет POST запрос с Content-Type:
+application/x-www-form-urlencoded. Сервер парсит body и предоставляет данные через API (в Servlet —
+request.getParameter(), в Spring — @ModelAttribute).
+@PostMapping и @ModelAttribute: автоматическое связывание данных
+
+Spring MVC упрощает обработку POST запросов через аннотации. @PostMapping маркирует метод контроллера, который
+обрабатывает POST на указанный URL. @ModelAttribute автоматически создаёт объект Java из данных формы.
+
+Базовый пример:
+
+```java
+
+@PostMapping("/leads")
+public String createLead(@ModelAttribute Lead lead) {
+  leadService.addLead(lead);
+  return "redirect:/leads";
+}
+```
+
+Что происходит под капотом:
+
+1. Браузер отправляет POST /leads с body: email=test@example.com&company=Acme&status=NEW
+2. Spring MVC парсит body, находит метод с @PostMapping("/leads")
+3. Видит @ModelAttribute Lead — создаёт новый объект Lead через конструктор или setter'ы
+4. Для каждого параметра из body ищет соответствующее поле в Lead:
+    - email=test@example.com → вызывает lead.setEmail("test@example.com") или передаёт в конструктор
+    - company=Acme → lead.setCompany("Acme")
+    - status=NEW → lead.setStatus(LeadStatus.NEW) через valueOf()
+5. Заполненный объект lead передаётся в метод createLead()
+
+Важные детали:
+
+- Имена полей формы должны совпадать с полями Java класса: name="email" → Lead.email(), name="company" → Lead.company().
+  Если не совпадают, поле останется null.
+- Spring поддерживает вложенные объекты: name="address.city" заполнит lead.getAddress().setCity().
+- Records (Java 14+) работают через конструктор: Spring найдёт канонический конструктор Lead(email, company, status) и
+  вызовет с параметрами из формы.
+
+Альтернатива @ModelAttribute — множество @RequestParam:
+
+```java
+public String createLead(
+    @RequestParam String email,
+    @RequestParam String company,
+    @RequestParam LeadStatus status
+) {
+  Lead lead = new Lead(email, company, status);
+}
+```
+
+Работает, но многословно: для 10 полей нужно 10 @RequestParam. @ModelAttribute компактнее и type-safe: если добавим
+новое поле в Lead, форма автоматически заполнит его (при условии что name совпадает).
+PRG паттерн (Post-Redirect-Get): предотвращение дублирования
+
+PRG (Post-Redirect-Get) — архитектурный паттерн веб-разработки, решающий проблему повторной отправки формы при
+обновлении страницы.
+
+Проблема без PRG:
+
+1. Пользователь заполняет форму, нажимает "Создать"
+2. POST /leads отправляется, сервер создаёт Lead, возвращает HTML страницу напрямую (return "leads/list")
+3. В адресной строке браузера остаётся POST /leads
+4. Пользователь нажимает F5 (обновить страницу)
+5. Браузер показывает диалог "Confirm Form Resubmission" — пользователь нажимает OK
+6. POST /leads отправляется снова → создаётся дубликат Lead
+
+Это катастрофа для e-commerce (двойная оплата), регистраций (два аккаунта), CRM (дубликаты записей).
+
+Решение через PRG:
+
+1. Пользователь отправляет POST /leads
+2. Сервер создаёт Lead, НЕ возвращает HTML напрямую, а отправляет HTTP redirect (статус 302 Found) с заголовком
+   Location: /leads
+3. Браузер видит 302, автоматически делает новый запрос GET /leads
+4. Сервер возвращает HTML список лидов
+5. В адресной строке теперь GET /leads (не POST)
+6. Пользователь нажимает F5 → браузер повторяет GET /leads → безопасно, просто обновляет список, не создаёт дубликаты
+
+В Spring MVC PRG реализуется через префикс "redirect:":
+
+```java
+
+@PostMapping("/leads")
+public String createLead(@ModelAttribute Lead lead) {
+  leadService.addLead(lead);
+  return "redirect:/leads"; // 302 redirect на GET /leads
+}
+```
+
+Альтернатива — вернуть view напрямую:
+
+```java
+return"leads/list"; // ПЛОХО: остаётся POST в адресной строке
+```
+
+Это anti-pattern, никогда не используется в production. Исключения: если форма содержит ошибки валидации, возвращаем
+view с ошибками (не redirect), чтобы показать что именно неправильно.
+
+PRG критичен для REST API тоже: после POST создания ресурса возвращаем 201 Created с заголовком Location, содержащим URL
+нового ресурса. Клиент делает GET на этот URL для получения данных. Это стандарт HTTP, описанный в RFC 7231.
+redirect: vs forward: в Spring MVC
+
+Spring MVC поддерживает два способа перенаправления после обработки запроса: redirect и forward. Они различаются
+кардинально.
+
+redirect: (HTTP 302) — браузер получает ответ "ресурс переехал", делает новый запрос на указанный URL. Адресная строка
+меняется, история браузера содержит два запроса (POST /leads → GET /leads). Пример: return "redirect:/leads" → браузер
+видит 302, запрашивает GET /leads.
+
+forward: (внутренний, server-side) — сервер передаёт запрос другому контроллеру без участия браузера. Адресная строка НЕ
+меняется, браузер не знает о forward. Пример: return "forward:/leads" → Spring внутренне вызывает метод для GET /leads,
+но браузер видит только один запрос (POST /leads).
+
+Когда использовать:
+
+- redirect: после POST для предотвращения дублирования (PRG паттерн), для внешних URL (другой домен), когда нужно
+  изменить URL в адресной строке
+- forward: для внутренней логики (один контроллер передаёт запрос другому), когда НЕ хотите менять URL, редко
+  используется в REST/MVC (больше в legacy Servlet приложениях)
+
+В нашем случае всегда redirect: после POST, потому что хотим изменить URL с POST /leads на GET /leads для безопасного
+F5.
+
+> Важно: redirect НЕ передаёт Model attributes автоматически (новый запрос, новый контекст). Если нужно передать данные
+> между redirect'ами, используем RedirectAttributes или Flash Scope (сохранение в сессии на один запрос).
+
+Content-Type форм: urlencoded vs multipart
+
+HTML формы отправляют данные в двух форматах, определяемых атрибутом enctype.
+
+application/x-www-form-urlencoded (по умолчанию) — данные кодируются как query string:
+email=test@example.com&company=Acme. Символы, не разрешённые в URL, кодируются: пробелы → %20, кириллица → UTF-8 bytes →
+%D0%9F. Подходит для текстовых полей, чисел, дат. Не подходит для файлов.
+
+multipart/form-data — каждое поле отправляется как отдельная часть (part) с заголовками. Используется для загрузки
+файлов:
+
+```html
+
+<form enctype="multipart/form-data" method="post">
+    <input type="file" name="avatar">
+</form>
+```
+
+Тело запроса:
+
+```
+------WebKitFormBoundary
+Content-Disposition: form-data; name="avatar"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+[binary data]
+------WebKitFormBoundary--
+```
+
+В Sprint 5 не загружаем файлы, используем стандартный urlencoded. Spring MVC автоматически парсит оба формата, не нужна
+специальная настройка для urlencoded. Для multipart потребуется MultipartResolver и @RequestParam MultipartFile (это
+Sprint 6-7).
+Зачем HTML форма вместо JSON API: server-side rendering
+
+Современные приложения часто используют SPA (Single Page Application) с React/Vue: фронтенд отправляет JSON через
+fetch(), backend возвращает JSON. Но server-side rendering (SSR) с HTML формами всё ещё актуален:
+
+Плюсы SSR + HTML форм:
+
+- Работает без JavaScript: если JS выключен или не загрузился, форма функциональна
+- SEO-friendly: поисковики видят контент сразу (не нужен SSR фреймворк типа Next.js)
+- Простота: не нужен отдельный фронтенд проект, bundler (Webpack), API слой
+- Меньше кода: один Spring MVC контроллер вместо Backend API + Frontend Controller
+
+Минусы SSR + HTML форм:
+
+- Полная перезагрузка страницы при submit (UX хуже, чем у SPA)
+- Сложно делать динамические UI (автокомплит, реалтайм валидация)
+- Логика размазана между backend (Java) и frontend (JTE шаблоны)
+
+В учебных проектах, админ-панелях, внутренних инструментах SSR идеален: быстрая разработка, не нужен
+frontend-разработчик. Для публичных приложений с богатым UI (Gmail, Figma) используют SPA.
+
+В Sprint 5 используем SSR с HTML формами, потому что фокус на backend. В будущих модулях (Cloud/Microservices) добавим
+REST API для SPA, но архитектура останется той же: те же Service/Repository, только контроллер вернёт JSON вместо HTML.
+
+### Ключевые навыки урока
+
+**1. Обработка POST запросов в Spring MVC через @PostMapping:**  
+POST используется для операций, изменяющих состояние на сервере: создание, обновление, удаление.  
+@PostMapping("/leads") маркирует метод контроллера, обрабатывающий POST на /leads.  
+Это семантически правильно (REST principles): POST /leads создаёт ресурс, GET /leads читает список.
+
+В реальных проектах 40-50% endpoint'ов — POST, остальные GET/PUT/DELETE.  
+Понимание когда использовать POST vs GET критично: использование GET для изменения данных нарушает HTTP стандарты, приводит к проблемам с кешированием и индексацией поисковиками.
+
+---
+
+**2. Автоматическое связывание формы с объектом через @ModelAttribute:**  
+Spring MVC избавляет от ручного парсинга request.getParameter().  
+@ModelAttribute Lead создаёт объект, заполняя поля из данных формы (name="email" → Lead.email()).
+
+Это устраняет boilerplate код: вместо 10 строк парсинга и конвертации типов пишем одну аннотацию.  
+На реальных проектах формы содержат десятки полей, @ModelAttribute масштабируется без изменения кода контроллера.
+
+Критично понимать: имена полей формы должны совпадать с полями Java класса, иначе данные не заполнятся (останутся null).
+
+---
+
+**3. PRG паттерн (Post-Redirect-Get) для предотвращения дублирования:**  
+Возврат HTML напрямую после POST оставляет POST запрос в адресной строке.  
+F5 повторно отправит POST → создаст дубликат записи.
+
+PRG решает это: после успешного POST делаем redirect (302) на GET endpoint.  
+Браузер автоматически запрашивает GET, URL меняется, F5 безопасно.
+
+Это стандарт веб-разработки, обязательный для production приложений.  
+Без PRG приложение уязвимо к случайному дублированию данных (особенно критично для платёжных систем, регистраций, заказов).
+
+---
+
+**4. HTML форма: структура, атрибуты action/method/name:**  
+HTML форма — основной способ сбора данных от пользователя.  
+action="/leads" определяет куда отправится запрос, method="post" — HTTP метод.
+
+Атрибут name у input критичен: он определяет ключ параметра на сервере  
+(name="email" → request parameter "email").  
+Без name данные не отправятся.
+
+type атрибут влияет на валидацию браузера (type="email" проверяет формат) и UI (type="date" показывает календарь).
+
+Понимание HTML форм базово для backend-разработчика: даже в SPA эпоху админ-панели и внутренние инструменты используют SSR с формами.
+
+---
+
+**5. redirect: префикс в Spring MVC для HTTP 302 редиректа:**  
+return "redirect:/leads" заставляет Spring отправить HTTP 302 с заголовком Location: /leads.  
+Браузер автоматически делает GET на новый URL.
+
+Это отличается от return "leads/list" (прямой рендеринг view), где URL не меняется.
+
+redirect: критичен для PRG паттерна.  
+Альтернатива forward: делает server-side перенаправление без изменения URL (редко используется в MVC).
+
+В production всегда redirect: после POST, forward: для внутренней логики.
+
+---
+
+**6. Tailwind CSS для стилизации форм: inputs, buttons, spacing:**  
+HTML форма без стилей выглядит непрофессионально: маленькие input'ы, кнопка без отступов, нет визуальной иерархии.
+
+Tailwind utility-классы решают это за минуты:  
+px-4 py-2 (padding), border rounded (рамка и скругление), bg-blue-500 text-white (цвет кнопки).
+
+Класс focus:ring-2 добавляет outline при фокусе (accessibility).
+
+На реальных проектах дизайнеры предоставляют макеты, backend-разработчик реализует через Tailwind без написания CSS.
+
+Навык работы с CSS-фреймворками критичен: даже если есть фронтенд-команда, backend делает админ-панели и внутренние инструменты.
+
+---
+
+**7. Проверка через Browser Developer Tools: Network tab, Form Data:**  
+После реализации важно проверить что именно отправляется на сервер.
+
+Browser Dev Tools (F12) → Network tab показывает:
+- Request URL (POST /leads)
+- Request Method (POST)
+- Form Data (email=..., company=..., status=...)
+
+Это помогает дебажить: если поле не пришло на сервер, проверяем Form Data — возможно, забыли name у input.
+
+Также видим Response: статус 302 (redirect), заголовок Location (/leads).
+
+Навык работы с Dev Tools обязателен для backend-разработчика: половина проблем "не работает форма" решается проверкой Network tab.
 
 ---
 
