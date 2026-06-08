@@ -31,6 +31,12 @@ public class LeadService {
     return lead;
   }
 
+  // Overload для LeadController createLead после парсинга html
+  public Lead addLead(Lead lead) {
+    return addLead(lead.email(), lead.phone(), lead.company(), lead.status()
+    );
+  }
+
   public List<Lead> findAll() {
     return new ArrayList<>(repository.findAll());
   }

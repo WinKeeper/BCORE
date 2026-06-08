@@ -1,10 +1,13 @@
 package ru.mentee.power.crm.spring.controller;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import ru.mentee.power.crm.model.Lead;
 import ru.mentee.power.crm.model.LeadStatus;
@@ -19,6 +22,19 @@ public class LeadController {
     this.leadService = leadService;
   }
 
+  @GetMapping("/leads/new")
+  public String showCreateForm(Model model) {
+    model.addAttribute("firstLead", new Lead(UUID.randomUUID(), "hardcoded@mail.ru", "4242", "HardAndSlow",
+        LeadStatus.NEW));
+    return "leads/create";
+  }
+
+  @PostMapping("/leads")
+  public String createLead(@ModelAttribute Lead lead) {
+    leadService.addLead(lead);
+    return ("redirect:/leads");
+  }
+
   @GetMapping("/leads")
   public String showLeads(@RequestParam(required = false) LeadStatus status, Model model) {
     List<Lead> leads = (status == null)
@@ -29,4 +45,5 @@ public class LeadController {
     model.addAttribute("currentFilter", status);
     return "leads/list";
   }
+
 }
