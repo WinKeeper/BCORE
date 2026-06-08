@@ -26,9 +26,9 @@ java {
     }
 }
 
-application {
-    mainClass = 'ru.mentee.power.crm.web.Main'
-}
+//application {
+//    mainClass = 'ru.mentee.power.crm.web.Main'
+//}
 
 repositories {
     mavenCentral()
@@ -125,4 +125,10 @@ jte {
 // Для вызова ./gradlew ci вместо огромной строки
 tasks.register('ci') {
     dependsOn 'clean', 'checkstyleMain', 'test', 'jacocoTestCoverageVerification', 'build'
+}
+
+// Для запуска main servlet пока не перешли на Spring полноценно
+tasks.register('runMain', JavaExec) {
+    mainClass = 'ru.mentee.power.crm.web.Main'
+    classpath = sourceSets.main.runtimeClasspath
 }

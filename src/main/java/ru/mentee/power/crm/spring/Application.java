@@ -8,7 +8,12 @@ import ru.mentee.power.crm.model.LeadStatus;
 import ru.mentee.power.crm.service.LeadService;
 
 // ! BCORE-15 не видит "вверх по дереву" т.к. корневая папка выше. Указал явно временно
-@SpringBootApplication(scanBasePackages = "ru.mentee.power.crm")
+@SpringBootApplication(scanBasePackages = {
+    "ru.mentee.power.crm.spring",
+    "ru.mentee.power.crm.service",
+    "ru.mentee.power.crm.repository",
+    "ru.mentee.power.crm.model"
+})
 public class Application {
 
   public static void main(String[] args) {

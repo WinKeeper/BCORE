@@ -1,7 +1,6 @@
 package ru.mentee.power.crm.spring.controller;
 
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,7 +23,8 @@ public class LeadController {
 
   @GetMapping("/leads/new")
   public String showCreateForm(Model model) {
-    model.addAttribute("firstLead", new Lead(UUID.randomUUID(), "hardcoded@mail.ru", "4242", "HardAndSlow",
+    model.addAttribute("lead", new Lead(null, "", "",
+        "",
         LeadStatus.NEW));
     return "leads/create";
   }
