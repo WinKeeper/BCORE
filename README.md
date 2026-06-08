@@ -2429,6 +2429,185 @@ Browser Dev Tools (F12) → Network tab показывает:
 
 ---
 
+## GATE-2: ООП, коллекции, Service Layer, Web
+
+### Вопрос 1: Что такое класс и объект? Приведи пример из CRM.
+
+**Ответ:** Класс — шаблон/чертёж (Lead.java описывает структуру: поля email, company, status). Объект — конкретный экземпляр класса. Класс Lead один — объектов много (каждый клиент).
+
+**Пример:**
+
+```java
+// КЛАСС — шаблон (model/Lead.java:6-11)
+public record Lead(UUID id, String email, String phone,
+                   String company, LeadStatus status) { }
+
+// ОБЪЕКТЫ — конкретные экземпляры (Application.java:27-31)
+service.addLead("NEW0@mail.ru", "+79000", "Company #0", LeadStatus.NEW);  // объект 1
+service.addLead("NEW1@mail.ru", "+79001", "Company #1", LeadStatus.NEW);  // объект 2
+// Один класс Lead, 10 объектов в HashMap
+```
+
+### Вопрос 2: Зачем нужна инкапсуляция? Покажи на примере Lead.
+
+**Ответ:** Инкапсуляция — сокрытие внутренних данных через private поля и контролируемый доступ. Lead — record с private полями (автоматически), доступ только через геттеры: `lead.email()`, `lead.status()`. Нельзя изменить email после создания — только через конструктор.
+
+**Пример:**
+
+```java
+// Lead.java — record с private полями, нет setEmail()
+// LeadService.java:23-31 — создание только через конструктор с валидацией:
+public Lead addLead(String email, ...) {
+    if (repository.findByEmail(email).isPresent())     // проверка дубликата
+        throw new IllegalStateException(...);           // ❌ email занят → ошибка
+    Lead lead = new Lead(UUID.randomUUID(), email, ...);// ✅ только через конструктор
+    return lead;
+}
+```
+
+### Вопрос 3: ArrayList vs HashSet — когда что использовать?
+
+**Ответ:** ArrayList — когда важен порядок и допускаются дубликаты (история изменений). HashSet — когда нужна уникальность (email адреса). HashSet быстрее (O(1) vs O(n)).
+
+**Пример:**
+
+```java
+// ArrayList — findAll() возвращает копию списка (LeadService.java:40-42)
+public List<Lead> findAll() {
+    return new ArrayList<>(repository.findAll());  // порядок из HashMap
+}
+
+// HashSet / HashMap — поиск за O(1) (InMemoryLeadRepository.java:16-17)
+private final Map<UUID, Lead> storage = new HashMap<>();       // O(1) по ID
+private final Map<String, UUID> emailIndex = new HashMap<>();  // O(1) по email
+```
+
+### Вопрос 4: Зачем equals() и hashCode()? Что сломается если не переопределить?
+
+**Ответ:** `equals()` сравнивает по значению (два Lead с одинаковым id равны). `hashCode()` нужен для HashMap. Если не переопределить — `HashMap.get()` не найдёт объект (по умолчанию сравнение по ссылке).
+
+**Пример:**
+
+```java
+// model/Lead.java:13-25 — сравнение по id, не по всем полям
+@Override
+public boolean equals(Object o) {
+    if (o == null || getClass() != o.getClass()) return false;
+    return Objects.equals(id, ((Lead) o).id);  // равны ↔ одинаковый UUID
+}
+
+@Override
+public int hashCode() {
+    return Objects.hashCode(id);  // хеш только от id → контракт с equals
+}
+
+// Без переопределения: storage.get(UUID) не нашёл бы Lead в HashMap,
+// потому что Object.equals() сравнивает ссылки, а не id
+```
+
+### Вопрос 5: Зачем нужен Service Layer между Controller и Repository?
+
+**Ответ:** Сервис содержит бизнес-логику: валидация, фильтрация, координация. Контроллер — только HTTP. Репозиторий — только хранение. Без сервиса логика дублируется по контроллерам.
+
+**Пример:**
+
+```java
+// Контроллер — только HTTP (LeadController.java:38-46):
+@GetMapping("/leads")
+public String showLeads(@RequestParam(required = false) LeadStatus status, Model model) {
+    List<Lead> leads = (status == null)
+        ? leadService.findAll()              // ← делегация в сервис
+        : leadService.findByStatus(status); // ← не знает про HashMap
+    return "leads/list";
+}
+
+// Сервис — бизнес-логика (LeadService.java:44-48):
+public List<Lead> findByStatus(LeadStatus status) {
+    return repository.findAll().stream()
+        .filter(lead -> lead.status().equals(status))  // ← правило здесь
+        .collect(Collectors.toList());
+}
+
+// Репозиторий — только данные (InMemoryLeadRepository):
+private final Map<UUID, Lead> storage = new HashMap<>();  // чистые данные
+```
+
+### Вопрос 6: Что такое Dependency Injection? Покажи на примере LeadService.
+
+**Ответ:** DI — передача зависимостей извне через конструктор, не через `new` внутри класса. Позволяет подменить реализацию без изменения кода.
+
+**Пример:**
+
+```java
+// LeadService.java:17-21 — DI через конструктор:
+private final LeadRepository<Lead> repository;          // поле типа ИНТЕРФЕЙСА
+
+public LeadService(LeadRepository<Lead> repository) {   // зависимость извне
+    this.repository = repository;                        // не new InMemory...()
+}
+
+// LeadController.java:18-22 — та же цепочка DI:
+private final LeadService leadService;
+public LeadController(LeadService leadService) {        // Spring внедряет бин
+    this.leadService = leadService;
+}
+
+// В тесте — подмена (LeadServiceTest.java:23-25):
+repository = new InMemoryLeadRepository();  // для тестов — in-memory
+service = new LeadService(repository);       // тот же конструктор!
+
+// Для production — замена одной строкой:
+// repository = new PostgresLeadRepository();  // БД
+// service = new LeadService(repository);      // конструктор НЕ меняется
+```
+
+### Вопрос 7: Servlet vs Spring Boot — в чём главная разница?
+
+**Ответ:** Servlet требует ручной настройки (~40 строк). Spring Boot автоматизирует (~3 строки). Встроенный Tomcat, автоконфигурация, DI.
+
+**Пример:**
+
+```java
+// Servlet — Main.java: ~40 строк ручного кода:
+Tomcat tomcat = new Tomcat();                          // создать
+tomcat.setPort(8080);                                   // порт
+tomcat.addContext("", new File(".").getAbsolutePath()); // контекст
+tomcat.addServlet(ctx, "LeadListServlet", ...);         // регистрация
+// ...
+
+// Spring Boot — Application.java:17-21: 3 строки:
+@SpringBootApplication(scanBasePackages = {...})
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args); // всё auto-config
+    }
+}
+```
+
+### Вопрос 8: Как работает HTTP GET и POST? Когда какой использовать?
+
+**Ответ:** GET — чтение, параметры в URL, идемпотентен (F5 безопасен). POST — создание, параметры в теле, не идемпотентен (F5 = дубликат → нужен redirect).
+
+**Пример:**
+
+```java
+// GET — чтение (LeadController.java:38-46):
+@GetMapping("/leads")
+public String showLeads(@RequestParam(required = false) LeadStatus status, Model model) {
+    // Параметры в URL: /leads?status=NEW
+    // Идемпотентно: можно нажимать F5 без последствий
+    return "leads/list";
+}
+
+// POST — создание + PRG (LeadController.java:32-36):
+@PostMapping("/leads")
+public String createLead(@ModelAttribute Lead lead) {
+    leadService.addLead(lead);           // данные в теле запроса, не в URL
+    return "redirect:/leads";            // PRG: после POST → redirect на GET
+}
+// Без redirect: F5 после POST → повторная отправка → дубликат
+```
+
 ## Code Review Checklist
 
 ### Функциональность
