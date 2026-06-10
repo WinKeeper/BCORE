@@ -5,15 +5,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import ru.mentee.power.crm.model.LeadStatus;
-import ru.mentee.power.crm.service.LeadService;
+import ru.mentee.power.crm.spring.service.LeadService;
 
-// ! BCORE-15 не видит "вверх по дереву" т.к. корневая папка выше. Указал явно временно
-@SpringBootApplication(scanBasePackages = {
-    "ru.mentee.power.crm.spring",
-    "ru.mentee.power.crm.service",
-    "ru.mentee.power.crm.repository",
-    "ru.mentee.power.crm.model"
-})
+@SpringBootApplication(scanBasePackages = "ru.mentee.power.crm")
 public class Application {
 
   public static void main(String[] args) {

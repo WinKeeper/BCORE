@@ -26,10 +26,6 @@ java {
     }
 }
 
-//application {
-//    mainClass = 'ru.mentee.power.crm.web.Main'
-//}
-
 repositories {
     mavenCentral()
 }
@@ -117,7 +113,7 @@ check {
 }
 
 jte {
-    sourceDirectory = file("src/main/jte").toPath()
+    sourceDirectory = file("src/main/resources/jte").toPath()
     contentType = "Html"
     binaryStaticContent = false
 }
@@ -127,8 +123,7 @@ tasks.register('ci') {
     dependsOn 'clean', 'checkstyleMain', 'test', 'jacocoTestCoverageVerification', 'build'
 }
 
-// Для запуска main servlet пока не перешли на Spring полноценно
-tasks.register('runMain', JavaExec) {
-    mainClass = 'ru.mentee.power.crm.web.Main'
-    classpath = sourceSets.main.runtimeClasspath
+// Второй вариант запуска двух серверов через явного определения в task bootRun где находится вход
+bootRun {
+    mainClass = 'ru.mentee.power.crm.spring.Application'
 }
