@@ -114,7 +114,7 @@ check {
 
 jte {
     sourceDirectory = file("src/main/resources/jte").toPath()
-    contentType = "Html"
+    contentType = gg.jte.ContentType.Html // BCORE-19 тесты падали
     binaryStaticContent = false
 }
 

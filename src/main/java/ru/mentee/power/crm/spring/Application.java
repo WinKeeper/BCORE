@@ -10,7 +10,7 @@ import ru.mentee.power.crm.spring.service.LeadService;
 @SpringBootApplication(scanBasePackages = "ru.mentee.power.crm")
 public class Application {
 
-  public static void main(String[] args) {
+  static void main(String[] args) {
     SpringApplication.run(Application.class, args);
   }
 
