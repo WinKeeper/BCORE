@@ -1,4 +1,4 @@
-package ru.mentee.power.crm.service;
+package ru.mentee.power.crm.spring.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

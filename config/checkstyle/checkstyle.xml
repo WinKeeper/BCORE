@@ -82,6 +82,7 @@
         <module name="ConstantName">
             <property name="severity" value="error"/>
             <property name="format" value="^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$"/>
+            <property name="applyToPrivate" value="false"/>
         </module>
 
         <!-- ==================== IMPORTS ==================== -->

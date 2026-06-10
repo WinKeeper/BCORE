@@ -1,4 +1,4 @@
-package ru.mentee.power.crm.service;
+package ru.mentee.power.crm.spring.service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,6 +6,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.mentee.power.crm.model.Lead;
 import ru.mentee.power.crm.model.LeadStatus;
@@ -14,10 +17,14 @@ import ru.mentee.power.crm.repository.LeadRepository;
 @Service
 public class LeadService {
 
+  // Добавил логер
+  private static final Logger log = LoggerFactory.getLogger(LeadService.class);
+
   private final LeadRepository<Lead> repository;
 
   public LeadService(LeadRepository<Lead> repository) {
     this.repository = repository;
+    log.info("LeadService constructor called");
   }
 
   public Lead addLead(String email, String phone, String company, LeadStatus status) {
@@ -31,10 +38,8 @@ public class LeadService {
     return lead;
   }
 
-  // Overload для LeadController createLead после парсинга html
   public Lead addLead(Lead lead) {
-    return addLead(lead.email(), lead.phone(), lead.company(), lead.status()
-    );
+    return addLead(lead.email(), lead.phone(), lead.company(), lead.status());
   }
 
   public List<Lead> findAll() {
@@ -53,5 +58,10 @@ public class LeadService {
 
   public Optional<Lead> findByEmail(String email) {
     return repository.findByEmail(email);
+  }
+
+  @PostConstruct
+  void init() {
+    log.info("LeadService @PostContruct init() called - Bean lifecycle phase");
   }
 }
