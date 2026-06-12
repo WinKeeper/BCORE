@@ -122,8 +122,3 @@ jte {
 tasks.register('ci') {
     dependsOn 'clean', 'checkstyleMain', 'test', 'jacocoTestCoverageVerification', 'build'
 }
-
-// Второй вариант запуска двух серверов через явного определения в task bootRun где находится вход
-bootRun {
-    mainClass = 'ru.mentee.power.crm.spring.Application'
-}
