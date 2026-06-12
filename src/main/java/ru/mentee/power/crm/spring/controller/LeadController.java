@@ -25,7 +25,7 @@ public class LeadController {
   public String showCreateForm(Model model) {
     model.addAttribute("lead", new Lead(null, "", "",
         "",
-        LeadStatus.NEW));
+        LeadStatus.NEW, null));
     return "leads/create";
   }
 
@@ -36,13 +36,27 @@ public class LeadController {
   }
 
   @GetMapping("/leads")
-  public String showLeads(@RequestParam(required = false) LeadStatus status, Model model) {
+  public String showLeads(@RequestParam(required = false) LeadStatus status,
+                          @RequestParam(required = false) String sortBy,
+                          @RequestParam(required = false, defaultValue = "asc") String sortDir,
+                          Model model) {
     List<Lead> leads = (status == null)
         ? leadService.findAll()
         : leadService.findByStatus(status);
 
+    if ("updatedAt".equals(sortBy)) {
+      if ("desc".equals(sortDir)) {
+        leads.sort((a, b) -> b.updatedAt().compareTo(a.updatedAt()));
+      } else {
+        leads.sort((a, b) -> a.updatedAt().compareTo(b.updatedAt()));
+      }
+    }
+
     model.addAttribute("leads", leads);
     model.addAttribute("currentFilter", status);
+    model.addAttribute("sortBy", sortBy);
+    model.addAttribute("sortDir", sortDir);
+
     return "leads/list";
   }
 
