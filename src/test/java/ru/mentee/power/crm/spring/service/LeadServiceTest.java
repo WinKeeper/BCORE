@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -27,6 +28,7 @@ class LeadServiceTest {
   }
 
   @Test
+  @DisplayName("Should create lead when email is unique")
   void shouldCreateLeadWhenEmailIsUnique() {
     // Given
     String email = "test@example.com";
@@ -45,6 +47,7 @@ class LeadServiceTest {
   }
 
   @Test
+  @DisplayName("Should throw exception when email already exists")
   void shouldThrowExceptionWhenEmailAlreadyExists() {
     // Given
     String email = "duplicate@example.com";
@@ -59,6 +62,7 @@ class LeadServiceTest {
   }
 
   @Test
+  @DisplayName("Should find all leads")
   void shouldFindAllLeads() {
     // Given
     service.addLead("one@example.com", "+71234567890", "Company 1", LeadStatus.NEW);
@@ -72,6 +76,7 @@ class LeadServiceTest {
   }
 
   @Test
+  @DisplayName("Should find lead by id")
   void shouldFindLeadById() {
     // Given
     Lead created = service.addLead("find@example.com", "+71234567890", "Company", LeadStatus.NEW);
@@ -85,6 +90,7 @@ class LeadServiceTest {
   }
 
   @Test
+  @DisplayName("Should find lead by email")
   void shouldFindLeadByEmail() {
     // Given
     service.addLead("search@example.com", "+71234567890", "Company", LeadStatus.NEW);
@@ -98,6 +104,7 @@ class LeadServiceTest {
   }
 
   @Test
+  @DisplayName("Should return empty when lead not found")
   void shouldReturnEmptyWhenLeadNotFound() {
     // Given/When
     Optional<Lead> result = service.findByEmail("nonexistent@example.com");
@@ -119,6 +126,7 @@ class LeadServiceTest {
   }
 
   @ParameterizedTest
+  @DisplayName("Should filter leads by status")
   @CsvSource({
       "NEW, 3",
       "CONTACTED, 5",
@@ -134,11 +142,13 @@ class LeadServiceTest {
   }
 
   @Test
+  @DisplayName("Should return empty list when no leads")
   void shouldReturnEmptyListWhenNoLeads() {
     assertThat(service.findByStatus(LeadStatus.NEW)).isEmpty();
   }
 
   @Test
+  @DisplayName("Should return empty list when no leads with status CONVERTED")
   void shouldReturnEmptyListWhenNoLeadsWithStatusConverted() {
     seedStandardLeads();
 

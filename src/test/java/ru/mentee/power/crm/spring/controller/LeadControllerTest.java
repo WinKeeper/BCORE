@@ -1,10 +1,14 @@
 package ru.mentee.power.crm.spring.controller;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -12,6 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -31,6 +36,7 @@ class LeadControllerTest {
   }
 
   @Test
+  @DisplayName("Should return leads list view with all leads")
   void shouldReturnLeadsListView() throws Exception {
     when(leadService.findAll()).thenReturn(List.of(
         new Lead(UUID.randomUUID(), "a@b.com", "+7123", "Corp", LeadStatus.NEW),
@@ -45,6 +51,21 @@ class LeadControllerTest {
   }
 
   @Test
+  @DisplayName("Should create lead and redirect to leads list")
+  void shouldCreateLeadAndRedirectToLeadsList() throws Exception {
+    mockMvc.perform(post("/leads")
+            .param("email", "new@example.com")
+            .param("phone", "+71234567890")
+            .param("company", "NewCorp")
+            .param("status", "NEW"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/leads"));
+
+    verify(leadService).addLead(any());
+  }
+
+  @Test
+  @DisplayName("Should handle empty leads list")
   void shouldHandleEmptyList() throws Exception {
     when(leadService.findAll()).thenReturn(List.of());
 

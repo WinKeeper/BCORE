@@ -22,13 +22,13 @@ content = @`
             </div>
             <!-- Telephone -->
             <div>
-                <label for="telephone" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
                     Telephone
                 </label>
                 <input
-                        type="telephone"
-                        id="telephone"
-                        name="telephone"
+                        type="phone"
+                        id="phone"
+                        name="phone"
                         required
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                         placeholder="+7 922 222 33 55"
@@ -36,13 +36,13 @@ content = @`
             </div>
             <!-- Company -->
             <div>
-                <label for="сompany" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="company" class="block text-sm font-medium text-gray-700 mb-1">
                     Company
                 </label>
                 <input
-                        type="сompany"
-                        id="сompany"
-                        name="сompany"
+                        type="company"
+                        id="company"
+                        name="company"
                         required
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                         placeholder="example org"

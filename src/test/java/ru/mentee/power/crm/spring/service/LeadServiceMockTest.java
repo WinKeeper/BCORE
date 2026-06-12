@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -36,6 +37,7 @@ class LeadServiceMockTest {
   }
 
   @Test
+  @DisplayName("Should call repository save when adding new lead")
   void shouldCallRepositorySaveWhenAddingNewLead() {
     // Given: Repository возвращает пустой Optional (email уникален)
     when(mockRepository.findByEmail(anyString()))
@@ -56,6 +58,7 @@ class LeadServiceMockTest {
   }
 
   @Test
+  @DisplayName("Should not call save when email already exists")
   void shouldNotCallSaveWhenEmailExists() {
     // Given: Repository возвращает существующий Lead
     Lead existingLead = new Lead(
@@ -78,6 +81,7 @@ class LeadServiceMockTest {
   }
 
   @Test
+  @DisplayName("Should call findByEmail before save when adding lead")
   void shouldCallFindByEmailBeforeSave() {
     // Given
     when(mockRepository.findByEmail(anyString()))

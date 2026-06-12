@@ -62,6 +62,6 @@ public class LeadService {
 
   @PostConstruct
   void init() {
-    log.info("LeadService @PostContruct init() called - Bean lifecycle phase");
+    log.info("LeadService @PostConstruct init() called - Bean lifecycle phase");
   }
 }

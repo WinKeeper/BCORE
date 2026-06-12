@@ -38,6 +38,7 @@
             <thead class="bg-gray-100">
             <tr>
                 <th class="px-4 py-2 text-left">Email</th>
+                <th class="px-4 py-2 text-left">Telephone</th>
                 <th class="px-4 py-2 text-left">Company</th>
                 <th class="px-4 py-2 text-left">Status</th>
             </tr>
@@ -46,6 +47,7 @@
             @for(var lead : leads)
                 <tr class="border-t hover:bg-gray-50">
                     <td class="px-4 py-2">${lead.email()}</td>
+                    <td class="px-4 py-2">${lead.phone()}</td>
                     <td class="px-4 py-2">${lead.company()}</td>
                     <td class="px-4 py-2">
                             <span class="px-2 py-1 rounded text-sm bg-green-100 text-green-800">
