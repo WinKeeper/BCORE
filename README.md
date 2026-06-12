@@ -3225,6 +3225,410 @@ ${lead.email()}  JTE Engine   HTML-строка       Браузер        ре
 Ты не писал парсеры — Spring Boot дал их бесплатно (auto-config). Твой код — только handler'ы (LeadController +
 LeadService).
 
+### Как работает Model в Spring MVC
 
+`Model` — это контейнер данных между контроллером и шаблонизатором (JTE).
+Работает как **словарь** `Map<String, Object>`:
 
+```
+   Контроллер                     Model                     JTE-шаблон
+──────────────              ────────────────              ──────────────
+model.addAttribute(         Model хранит:                 В шаблоне читаем:
+  "leads", leads)  ──────►  "leads" → List<Lead>   ──►    ${leads}
+  "currentFilter",          "currentFilter" →            ${currentFilter}
+  status)                      NEW / null
+                                                            ↓
+return "leads/list" ─────►  Dispatcher видит имя          /WEB-INF/jte/leads/list.jte
+                            шаблона "leads/list",          рендерит HTML,
+                            отдаёт Model в шаблон          подставляя значения
+```
+
+#### Что можно положить в Model
+
+| Тип | Значение | В шаблоне |
+|-----|----------|-----------|
+| `List<Lead>` | Список лидов | `@for(Lead lead : leads)` |
+| `LeadStatus` | Текущий фильтр | `if (currentFilter != null)` |
+| `Lead` | Пустой лид для формы | `${lead.email}` |
+| Любой `Object` | String, число, enum | `${...}` |
+
+#### Связь между GET и POST
+
+```java
+// GET /leads/new — кладём пустой Lead как «заготовку»
+model.addAttribute("lead", new Lead(null, "", "", "", LeadStatus.NEW));
+
+// POST /leads — Spring берёт ТУ ЖЕ модель, заполняет из формы
+// @ModelAttribute Lead lead   ← поля формы сами записались в этот объект
+```
+
+Имя `"lead"` в `addAttribute` совпадает с именем параметра `@ModelAttribute Lead lead`.
+Spring автоматически связывает: что положил в GET, то заполнил в POST.
+
+#### Почему без Model не работает
+
+- Без `model.addAttribute("leads", ...)` шаблон упадёт с ошибкой: `leads` не найден в контексте
+- Без `model.addAttribute("lead", ...)` в GET форма не отрендерится — в шаблоне `${lead.email}` обратится к null
+- Model никак не связана с сессией / БД — живёт только внутри одного request-response цикла
+
+### Model в действии: схема данных в проекте
+
+#### 1. GET /leads?status=NEW — список с фильтром
+
+```
+Браузер: GET /leads?status=NEW
+  │
+  ▼
+LeadController.showLeads(status=NEW, model)
+  │
+  ├─► leadService.findByStatus(NEW) → List<Lead> (3 штуки)
+  │
+  ├─► model.addAttribute("leads", List[new0@mail.ru, new1@mail.ru, new2@mail.ru])
+  ├─► model.addAttribute("currentFilter", NEW)
+  │
+  └─► return "leads/list"
+        │
+        ▼
+      Dispatcher принимает "leads/list"
+        │
+        ▼
+      /jte/leads/list.jte — рендеринг:
+        ┌─ @for(Lead lead : leads)    ← читает "leads" из Model (3 элемента)
+        │    <td>${lead.email()}</td> ← подставляет email каждого лида
+        │    <td>${lead.status()}</td>
+        │                                  ← проверяет "currentFilter" из Model
+        └─ @if(currentFilter == NEW) ← выделяет кнопку фильтра
+        ─► HTML страница → Браузер
+```
+
+#### 2. GET /leads/new — пустая форма
+
+```
+Браузер: GET /leads/new
+  │
+  ▼
+LeadController.showCreateForm(model)
+  │
+  ├─► model.addAttribute("lead", new Lead(null, "", "", "", LeadStatus.NEW))
+  │          id=null   email=""   phone=""   company=""   status=NEW
+  │
+  └─► return "leads/create"
+        │
+        ▼
+      /jte/leads/create.jte — рендеринг:
+        ┌─ <input value="${lead.email()}" />    ← пусто, пользователь заполнит
+        ┌─ <input value="${lead.phone()}" />    ← пусто
+        ┌─ <input value="${lead.company()}" />  ← пусто
+        └─ <input value="${lead.status()}" />   ← NEW (предзаполнено)
+        ─► HTML форма → Браузер
+```
+
+#### 3. POST /leads — отправка формы и редирект
+
+```
+Браузер: POST /leads (form data: email=test@mail.ru phone=+7900 company=Corp status=NEW)
+  │
+  ▼
+Spring Data Binding:
+  Из параметров запроса собирает объект Lead
+  @ModelAttribute Lead lead = new Lead(null, "test@mail.ru", "+7900", "Corp", NEW)
+  │
+  ▼
+LeadController.createLead(lead)
+  │
+  ├─► leadService.addLead(lead)
+  │     ├─► repository.findByEmail("test@mail.ru") → Optional.empty() (уникален)
+  │     ├─► new Lead(UUID.randomUUID(), email, phone, company, status)
+  │     └─► repository.save(lead) → сохранён
+  │
+  └─► return "redirect:/leads"
+        │
+        ▼
+      Браузер получает 302 → переходит на GET /leads
+      (запускается схема №1 — видит обновлённый список с новым лидом)
+```
+
+#### Итоговая таблица «Что где живёт»
+
+| Model ключ | Тип | Кто кладёт | Кто читает |
+|---|---|---|---|
+| `leads` | `List<Lead>` | `showLeads()` | `list.jte` → `@for` |
+| `currentFilter` | `LeadStatus/null` | `showLeads()` | `list.jte` → `@if` |
+| `lead` | `Lead` (пустой) | `showCreateForm()` | `create.jte` → поля формы |
+| `lead` | `Lead` (заполненный) | Spring из формы | `createLead()` → @ModelAttribute |
+
+### Лямбды в Java: примеры и бытовые аналогии
+
+Лямбда `(параметры) -> { тело }` — это **рецепт действия**, а не само действие.
+Она ничего не делает, пока её не передашь методу, который её вызовет.
+
+#### 1. Consumer — «Сделай это с каждым»
+```java
+list.forEach(lead -> System.out.println(lead.email()));
+```
+
+**Аналогия:** Контролёр в кинотеатре. Ему дают стопку билетов, он каждый отрывает.
+Сам билеты не собирает —他只是 отрывает корешок.
+
+**Бытовая аналогия:** Лист рассылки. Ты даёшь список email'ов и письмо.
+Почтальон для каждого адреса делает одно и то же — кладёт письмо в ящик.
+
+#### 2. Function — «Преврати одно в другое»
+```java
+stream.map(lead -> lead.email())
+```
+
+**Аналогия:** Кухонный комбайн. Кидаешь морковку — получаешь соломку.
+У каждого Lead забираешь только email.
+
+**Бытовая аналогия:** Конвейер на заводе. На вход — деталь, на выходе — та же деталь, но с просверленным отверстием.
+Форма та же, добавилось новое свойство.
+
+#### 3. Predicate — «Подходит или нет?»
+```java
+stream.filter(lead -> lead.status() == LeadStatus.NEW)
+```
+
+**Аналогия:** Фейс-контроль в клубе. Вышибала смотрит на каждого и пропускает только тех, кто в списке.
+Либо пускает, либо нет — третьего не дано.
+
+**Бытовая аналогия:** Сито для муки. Мука просыпается, комочки остаются.
+Одни элементы проходят дальше, другие задерживаются.
+
+#### 4. Supplier — «Достань, когда понадобится»
+```java
+orElseGet(() -> new Lead(id, "default@mail.com", "+7000", "Default", LeadStatus.NEW))
+```
+
+**Аналогия:** Автомат с игрушками. Ты кидаешь монетку, и только тогда механизм достаёт капсулу.
+Пока не кинул — игрушка лежит внутри, ресурсы не тратятся.
+
+**Бытовая аналогия:** Запасной ключ под ковриком. Ты не ходишь с ним постоянно.
+Только если забыл основные ключи — лезешь под коврик.
+
+#### 5. Comparator — «Кто старше?»
+```java
+sorted((a, b) -> a.email().compareTo(b.email()))
+```
+
+**Аналогия:** Судья на соревнованиях. Ему дают двух спортсменов, он решает, кто лучше.
+Сравнивает пару и выдаёт порядок.
+
+**Бытовая аналогия:** Сортировка носков по цвету. Ты берёшь два носка, смотришь, какой темнее,
+кладёшь тёмный левее. Повторяешь, пока все не разложены.
+
+#### 6. Runnable — «Сделай в другой кассе»
+```java
+Thread thread = new Thread(() -> {
+  Lead lead = service.addLead("async@mail.com", "+7000", "Async", LeadStatus.NEW);
+  System.out.println("Lead created: " + lead.id());
+});
+thread.start();
+```
+
+**Аналогия:** Ты в очереди в Макдональдсе. Пока ждёшь свой бургер,
+другой сотрудник параллельно жарит картошку для другого заказа.
+
+**Бытовая аналогия:** Ты ставишь чайник и одновременно режешь бутерброд.
+Чайник греется сам по себе (другой поток), ты не ждёшь его, а делаешь свои дела.
+
+#### Главное правило
+
+> Лямбда — это **чертёж**, а не деталь. Чертежом нельзя забить гвоздь.
+> Надо отдать его рабочему (методу), чтобы тот сделал деталь по чертежу.
+
+```java
+// Чертёж (лямбда) — просто описание
+Function<Lead, String> getEmail = lead -> lead.email();
+
+// Рабочий (map) — вызывает чертёж для каждого элемента
+List<String> emails = leads.stream().map(getEmail).toList();
+```
+
+### POST /leads: от формы до редиректа — полный разбор
+
+#### 1. `@ModelAttribute Lead lead` — Spring сам собирает объект
+
+```
+HTML форма                          HTTP-запрос POST
+<input name="email" />      →       email=test@mail.ru
+<input name="phone" />      →       &phone=+7900
+<input name="company" />    →       &company=Corp
+<select name="status" />    →       &status=NEW
+```
+
+Дальше вступает **Data Binding**:
+
+```
+1. Spring видит @ModelAttribute Lead lead
+2. Ищет в Model атрибут с именем "lead" → находит пустой объект (который мы положили в GET)
+3. Создаёт НОВЫЙ экземпляр Lead через конструктор record'а:
+   Lead lead = new Lead(
+       null,              // id — в форме его нет → null
+       "test@mail.ru",    // email — из <input name="email">
+       "+7900",           // phone — из <input name="phone">
+       "Corp",            // company — из <input name="company">
+       LeadStatus.NEW     // status — Spring сам приводит "NEW" → LeadStatus.NEW
+   );
+4. Передаёт готовый объект в createLead(lead)
+```
+
+**Ключевое**: Spring не меняет тот пустой Lead из Model. Он читает его как «форму»,
+заполняет поля из параметров запроса и создаёт новый объект.
+Старый (из GET) просто подсказал имена и типы полей.
+
+#### 2. `leadService.addLead(lead)` — что внутри
+
+```java
+// LeadService: overload для @ModelAttribute
+public Lead addLead(Lead lead) {
+    return addLead(lead.email(), lead.phone(), lead.company(), lead.status());
+}
+// ↓ делегирует в основной метод
+public Lead addLead(String email, String phone, String company, LeadStatus status) {
+    // 1. ПРОВЕРКА: нет ли уже такого email в хранилище
+    Optional<Lead> existing = repository.findByEmail(email);
+    if (existing.isPresent()) {
+        throw new IllegalStateException("Lead with email already exists: " + email);
+    }
+    // 2. СОЗДАНИЕ: новый лид с уникальным UUID
+    Lead lead = new Lead(UUID.randomUUID(), email, phone, company, status);
+    // 3. СОХРАНЕНИЕ: в HashMap по id + в emailIndex
+    repository.save(lead);
+    return lead;
+}
+```
+
+По шагам для конкретного примера:
+
+```
+lead = Lead(null, "test@mail.ru", "+7900", "Corp", NEW)
+  │
+  ├─► addLead(lead) вызывает addLead("test@mail.ru", "+7900", "Corp", NEW)
+  │
+  ├─► repository.findByEmail("test@mail.ru")
+  │     └─► emailIndex.get("test@mail.ru") → null → Optional.empty()
+  │     └─► OK, email уникален, продолжаем
+  │
+  ├─► new Lead(UUID.randomUUID(), "test@mail.ru", "+7900", "Corp", NEW)
+  │     └─► id = "a3f7b2c1-..."
+  │
+  ├─► repository.save(lead)
+  │     ├─► storage.put(a3f7b2c1, lead)
+  │     └─► emailIndex.put("test@mail.ru", lead)
+  │
+  └─► return lead
+```
+
+#### 3. `return "redirect:/leads"` — почему не `return "leads/list"`
+
+Это паттерн **Post/Redirect/Get (PRG)**, и у него две причины:
+
+**Причина 1: двойная отправка (double submit)**
+
+```
+                         Браузер
+                            │
+        ┌───────────────────┤
+        ▼                   │
+  POST /leads ──► 302 ──► GET /leads ──► HTML
+        │        302 ответ    │
+        │        говорит      │
+        │        «иди туда»   │
+        └─ если вернуть "leads/list", браузер запомнит URL как /leads
+           и при F5 / Обновить страницу — заново отправит POST
+           → дубликат лида!
+```
+
+**Без redirect** (просто return "leads/list"):
+
+```
+Пользователь          Браузер            Сервер
+    │                    │                  │
+    ├─ заполнил форму ──►│                  │
+    │                    ├─ POST /leads ──► │
+    │                    │                  ├─ addLead → save
+    │                    │ ◄── 200 OK ────  │   + рендер "leads/list"
+    │ ◄── видит список ──┤                  │
+    │                    │                  │
+    ├─ нажал F5 ────────►│                  │
+    │                    ├─ POST /leads ──► │  ← СНОВА POST!
+    │                    │                  ├─ addLead → дубликат!
+```
+
+**С redirect** (return "redirect:/leads"):
+
+```
+Пользователь          Браузер            Сервер
+    │                    │                  │
+    ├─ заполнил форму ──►│                  │
+    │                    ├─ POST /leads ──► │
+    │                    │                  ├─ addLead → save
+    │                    │ ◄── 302 ──────── │   Location: /leads
+    │                    │                  │
+    │                    ├─ GET /leads ───► │  ← Браузер сам идёт по Location
+    │                    │ ◄── 200 OK ────  │   + рендер "leads/list"
+    │ ◄── видит список ──┤                  │
+    │                    │                  │
+    ├─ нажал F5 ────────►│                  │
+    │                    ├─ GET /leads ───► │  ← GET! Безопасно!
+    │                    │ ◄── 200 OK ────  │
+```
+
+**Бытовая аналогия:**
+Ты оплатил штраф через терминал ГИБДД. Терминал не печатает квитанцию на том же экране —
+он выдаёт чек и говорит: «Проверьте статус на табло». Если бы после оплаты ты нажал
+«Повторить» — оплатил бы второй раз.
+
+**Причина 2: данные в Model актуальны**
+
+```
+return "redirect:/leads"        return "leads/list"
+──────────────────────          ──────────────────
+Браузер делает GET /leads       Model уже заполнена старыми
+→ showLeads() вызывает          данными из POST-запроса
+  leadService.findAll()         → findAll() не вызывается
+→ в Model попадают ВСЕ лиды    → новый лид не виден в HTML,
+  включая только что            пока не обновишь страницу
+  созданный
+```
+
+#### 4. Полная схема (нажми Submit → видишь обновлённый список)
+
+| # | Кто | Где | JTE? |
+|---|-----|-----|------|
+| 1 | Пользователь жмёт «New Lead» | GET `/leads/new` | — |
+| 2 | `showCreateForm()` кладёт пустой Lead в Model | LeadController | — |
+| 3 | **`leads/create.jte`** рендерит форму | JTE | ✅ |
+| 4 | Пользователь заполняет поля, жмёт Submit | POST `/leads` | — |
+| 5 | `@ModelAttribute` собирает заполненный Lead из формы | Spring Data Binding | — |
+| 6 | `createLead()` → `addLead()` → `save()` | Controller → Service → Repo | — |
+| 7 | `return "redirect:/leads"` — никакого JTE | Dispatcher → 302 ответ | — |
+| 8 | Браузер делает GET `/leads` | — | — |
+| 9 | `showLeads()` кладёт все 11 лидов в Model | LeadController | — |
+| 10 | **`leads/list.jte`** рендерит таблицу | JTE | ✅ |
+
+**JTE работает только на шагах 3 и 10** — при рендеринге страниц.
+POST (шаги 4–7) — это «реактивный» код: получил данные, сохранил, сказал браузеру идти дальше.
+JTE здесь не нужен.
+
+#### 5. `@ModelAttribute` vs `@RequestParam`
+
+| | `@RequestParam` | `@ModelAttribute` |
+|---|---|---|
+| Что принимает | По одному параметру | Весь объект целиком |
+| Код | 4 параметра, каждый отдельно | 1 объект, Spring собирает |
+| Валидация | Вручную каждый String | Можно повесить `@Valid` на объект |
+| Расширение | Добавил поле в Lead → новый параметр в методе | Добавил поле в Lead → Spring сам подхватит |
+
+```java
+// @RequestParam — громоздко
+public String createLead(@RequestParam String email,
+                         @RequestParam String phone,
+                         @RequestParam String company,
+                         @RequestParam LeadStatus status) { ... }
+
+// @ModelAttribute — чисто
+public String createLead(@ModelAttribute Lead lead) { ... }
+```
 
