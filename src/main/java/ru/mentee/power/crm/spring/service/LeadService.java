@@ -1,5 +1,6 @@
 package ru.mentee.power.crm.spring.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +34,7 @@ public class LeadService {
       throw new IllegalStateException("Lead with email already exists: " + email);
     }
 
-    Lead lead = new Lead(UUID.randomUUID(), email, phone, company, status);
+    Lead lead = new Lead(UUID.randomUUID(), email, phone, company, status, LocalDateTime.now());
     repository.save(lead);
     return lead;
   }

@@ -1,5 +1,7 @@
 @param java.util.List<ru.mentee.power.crm.model.Lead> leads
 @param ru.mentee.power.crm.model.LeadStatus currentFilter
+@param String sortBy
+@param String sortDir
 
 @template.layout.main(content = @`
     <div class="mb-4 flex justify-between items-center">
@@ -18,6 +20,14 @@
         <a href="/leads?status=QUALIFIED"
            class="px-4 py-2 rounded ${currentFilter == ru.mentee.power.crm.model.LeadStatus.QUALIFIED ? "bg-blue-500 text-white" : "bg-gray-200"}">
             QUALIFIED
+        </a>
+        <a href="/leads?sortBy=updatedAt&sortDir=asc"
+           class="px-4 py-2 rounded bg-gray-200">
+            Сортировка по возрастанию
+        </a>
+        <a href="/leads?sortBy=updatedAt&sortDir=desc"
+           class="px-4 py-2 rounded bg-gray-200">
+            Сортировка по убыванию
         </a>
         <a href="/leads/new"
            class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
@@ -41,6 +51,7 @@
                 <th class="px-4 py-2 text-left">Telephone</th>
                 <th class="px-4 py-2 text-left">Company</th>
                 <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-2 text-left">Updated At</th>
             </tr>
             </thead>
             <tbody>
@@ -54,6 +65,8 @@
                                 ${lead.status()}
                             </span>
                     </td>
+                    <td class="px-4 py-2">${lead.updatedAt().format(java.time.format.DateTimeFormatter.
+     ofPattern("dd.MM.yyyy HH:mm"))}</td>
                 </tr>
             @endfor
             </tbody>

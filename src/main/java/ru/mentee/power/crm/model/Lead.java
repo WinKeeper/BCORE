@@ -1,5 +1,6 @@
 package ru.mentee.power.crm.model;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -8,7 +9,8 @@ public record Lead(
     String email,
     String phone,
     String company,
-    LeadStatus status
+    LeadStatus status,
+    LocalDateTime updatedAt
 ) {
   @Override
   public boolean equals(Object o) {
