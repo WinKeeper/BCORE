@@ -41,6 +41,7 @@
                 <th class="px-4 py-2 text-left">Telephone</th>
                 <th class="px-4 py-2 text-left">Company</th>
                 <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-2 text-left">Update</th>
             </tr>
             </thead>
             <tbody>
