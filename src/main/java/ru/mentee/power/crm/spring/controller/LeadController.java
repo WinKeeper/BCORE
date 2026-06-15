@@ -60,12 +60,9 @@ public class LeadController {
 
   @GetMapping("/leads/{id}/edit")
   public String showEditForm(@PathVariable UUID id, Model model) {
-    if (leadService.findById(id) == null) {
-      new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found");
-    }
-
-    model.addAttribute("lead", leadService.findById(id));
-
+    Lead lead = leadService.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found: " + id));
+    model.addAttribute("lead", lead);
     return "spring/edit";
   }
 

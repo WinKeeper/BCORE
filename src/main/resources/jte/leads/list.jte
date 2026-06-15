@@ -56,7 +56,7 @@
                             </span>
                     </td>
                     <td class="px-4 py-2">
-                        <a href="/leads/${lead.id()}/edit"
+                        <a href="/leads/${lead.id().toString()}/edit"
                            class="text-blue-600 hover:underline">
                             Update
                         </a>

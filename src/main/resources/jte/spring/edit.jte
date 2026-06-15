@@ -5,9 +5,8 @@ content = @`
     <div class="max-w-md mx-auto mt-8">
         <h1 class="text-2xl font-bold mb-6">Редактирование лида</h1>
 
-        <form action="/leads/${lead.id()}" method="post" class="space-y-4">
-            <!-- ID -->
-            <input type="hidden" name="id" value="${lead.id()}"/>
+        <form action="/leads/${lead.id().toString()}" method="post" class="space-y-4">
+            <input type="hidden" name="id" value="${lead.id().toString()}"/>
             <!-- Email -->
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
