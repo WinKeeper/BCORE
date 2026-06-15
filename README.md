@@ -3495,6 +3495,52 @@ public Lead updateLead(UUID id, Lead updated) {
 | 2 | `new ResponseStatusException(...)` — создан но не брошен | `new ResponseStatusException(...)` | `throw new ResponseStatusException(...)` |
 | 3 | `model.addAttribute("lead", findById(id))` — кладётся Optional, а не Lead | `model.addAttribute("lead", optionalLead)` | `model.addAttribute("lead", optionalLead.orElseThrow())` |
 
+### @PathVariable — как Spring достаёт id из URL
+
+`{id}` в `@GetMapping("/leads/{id}/edit")` — это **плейсхолдер**, который Spring заменяет на реальное значение из URL.
+
+```
+@GetMapping("/leads/{id}/edit")
+                 ↑  шаблон пути
+Браузер: GET /leads/a3f7b2c1-9d4e-.../edit
+                        ↑  конкретный UUID из адресной строки
+```
+
+#### Цепочка внутри Spring
+
+```
+1. DispatcherServlet получает GET /leads/a3f7b2c1.../edit
+2. Сопоставляет с шаблоном "/leads/{id}/edit" → совпало
+3. Извлекает часть пути между /leads/ и /edit → "a3f7b2c1-9d4e-..."
+4. Видит @PathVariable UUID id:
+   - Тип параметра: UUID
+   - Имя переменной: id (совпадает с {id})
+5. Вызывает UUID.fromString("a3f7b2c1...") → UUID объект
+6. Передаёт: showEditForm(UUID("a3f7b2c1..."), model)
+```
+
+#### Если имя не совпадает
+
+```java
+@GetMapping("/leads/{leadId}/edit")
+public String showEditForm(@PathVariable("leadId") UUID id, Model model) {
+//                            ^ явная привязка к переменной из URL
+}
+```
+
+#### Автоконвертация типов
+
+Spring сам превращает строку из URL в нужный тип:
+
+| Шаблон | URL | Java-тип |
+|--------|-----|----------|
+| `/{id}` | `abc-123` | `UUID` |
+| `/{id}` | `42` | `Long`, `int` |
+| `/{name}` | `hello` | `String` |
+
+Если строка невалидна (например `/leads/not-a-uuid/edit` для `UUID id`) —
+Spring кинет **400 Bad Request**, даже не дойдя до метода.
+
 ### Ключевые навыки BCORE-21
 
 - Работать с `@PathVariable` — извлекать id из URL
