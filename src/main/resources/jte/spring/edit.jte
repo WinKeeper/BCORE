@@ -5,19 +5,9 @@ content = @`
     <div class="max-w-md mx-auto mt-8">
         <h1 class="text-2xl font-bold mb-6">Редактирование лида</h1>
 
-        <form action="/leads/${lead.id}" method="post" class="space-y-4">
+        <form action="/leads/${lead.id()}" method="post" class="space-y-4">
             <!-- ID -->
-            <div>
-                <label for="id" class="block text-sm font-medium text-gray-700 mb-1">
-                    id
-                </label>
-                <input
-                        type="hidden"
-                        id="id"
-                        name="id"
-                        value="${lead.id}"
-                />
-            </div>
+            <input type="hidden" name="id" value="${lead.id()}"/>
             <!-- Email -->
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
@@ -70,11 +60,10 @@ content = @`
                 </label>
                 <select id="status" name="status" required
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                    <option value="NEW" ${lead.status().equals("NEW") ? "selected" : ""}>Новый лид</option>
-                    <option value="CONTACTED" ${lead.status().equals("CONTACTED") ? "selected" : ""}>Связались</option>
-                    <option value="QUALIFIED" ${lead.status().equals("QUALIFIED") ? "selected" : ""}>Целевой</option>
-                    <option value="CONVERTED" ${lead.status().equals("CONVERTED") ? "selected" : ""}>Закрыт (успешно)
-                    </option>
+                    <option value="NEW" selected="${lead.status().name().equals("NEW")}">Новый лид</option>
+                    <option value="CONTACTED" selected="${lead.status().name().equals("CONTACTED")}">Связались</option>
+                    <option value="QUALIFIED" selected="${lead.status().name().equals("QUALIFIED")}">Целевой</option>
+                    <option value="CONVERTED" selected="${lead.status().name().equals("CONVERTED")}">Закрыт (успешно)</option>
                 </select>
             </div>
             <!-- Submit Button -->
