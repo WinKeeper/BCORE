@@ -3321,7 +3321,190 @@ public class ExampleBean {
 
 ---
 
-## Code Review Checklist
+## BCORE-21: Редактирование лида
+
+### Суть
+
+Научились редактировать существующий лид: GET-форма с предзаполненными данными → POST-сохранение → редирект на список.
+
+### Ключевые концепции
+
+- **`@PathVariable UUID id`** — извлечение id из URL `/leads/{id}/edit`
+- **`@GetMapping("/leads/{id}/edit")`** — показ формы с существующими данными
+- **`@PostMapping("/leads/{id}")`** — приём изменённых данных и обновление
+- **`orElseThrow()`** — проброс исключения если Optional пуст
+- **`throw` vs `new`** — создание исключения без `throw` — потерянная строка
+- **Record иммутабельность** — нельзя `existing.email = ...`, только `delete + new`
+- **Паттерн PRG** — Post/Redirect/Get при редактировании
+
+### Полный поток редактирования: от кнопки до обновлённого списка
+
+#### LeadController — исправленный GET + новый POST
+
+```java
+@GetMapping("/leads/{id}/edit")
+public String showEditForm(@PathVariable UUID id, Model model) {
+    Lead lead = leadService.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found: " + id));
+
+    model.addAttribute("lead", lead);
+    return "spring/edit";
+}
+
+@PostMapping("/leads/{id}")
+public String updateLead(@PathVariable UUID id, @ModelAttribute Lead lead) {
+    leadService.updateLead(id, lead);
+    return "redirect:/leads";
+}
+```
+
+#### LeadService — новый метод updateLead
+
+```java
+public Lead updateLead(UUID id, Lead updated) {
+    // 1. Находим существующий (или исключение)
+    Lead existing = findById(id)
+        .orElseThrow(() -> new NoSuchElementException("Lead not found: " + id));
+
+    // 2. Если email поменялся — проверяем что новый не занят другим лидом
+    if (!existing.email().equals(updated.email())) {
+        Optional<Lead> byEmail = findByEmail(updated.email());
+        if (byEmail.isPresent()) {
+            throw new IllegalStateException("Email already taken: " + updated.email());
+        }
+    }
+
+    // 3. Удаляем старый из storage и emailIndex
+    repository.delete(id);
+
+    // 4. Создаём новый record с тем же id (record иммутабельный)
+    Lead saved = new Lead(id, updated.email(), updated.phone(),
+        updated.company(), updated.status());
+
+    // 5. Сохраняем — кладёт в storage по id и в emailIndex по новому email
+    repository.save(saved);
+    return saved;
+}
+```
+
+#### Пошаговая схема всего цикла
+
+```
+                                                     InMemory
+Браузер                   LeadController             LeadRepository
+──────                   ──────────────             ──────────────
+
+1. Пользователь нажал «Edit» в списке
+   │
+   ├─► GET /leads/a3f7b2c1/edit
+   │                         │
+   │                         ├─► leadService.findById(a3f7b2c1)
+   │                         │     └─► repository.findById(a3f7b2c1)
+   │                         │           └─► storage.get(a3f7b2c1)
+   │                         │               → Lead("a3f7b2c1", "old@mail.ru", "+7900", "OldCorp", NEW)
+   │                         │
+   │                         ├─► model.addAttribute("lead", найденный Lead)
+   │                         │
+   │                         └─► return "spring/edit"
+   │                               │
+   │                               ▼
+   │                         spring/edit.jte:
+   │                           ${lead.email()}   → "old@mail.ru"
+   │                           ${lead.phone()}   → "+7900"
+   │                           ${lead.company()} → "OldCorp"
+   │                           ${lead.status()}  → NEW
+   │
+   ◄── 200 OK, HTML форма ────┘
+   │
+   │   (поля предзаполнены старыми данными — пользователь видит их и меняет)
+
+2. Пользователь изменил email на "new@mail.ru", нажал «Обновить»
+   │
+   ├─► POST /leads/a3f7b2c1
+   │    email=new@mail.ru
+   │    phone=+7900
+   │    company=NewCorp
+   │    status=QUALIFIED
+   │                         │
+   │                         ├─► @ModelAttribute собирает:
+   │                         │   Lead(null, "new@mail.ru", "+7900", "NewCorp", QUALIFIED)
+   │                         │   (id в форме hidden → null в record, не страшно —
+   │                         │    id мы берём из @PathVariable, не из формы)
+   │                         │
+   │                         ├─► updateLead(a3f7b2c1, lead)
+   │                         │     │
+   │                         │     ├─► findById(a3f7b2c1)
+   │                         │     │     └─► storage.get(a3f7b2c1)
+   │                         │     │         → Optional.of(Lead("a3f7b2c1", "old@mail.ru",...))
+   │                         │     │
+   │                         │     ├─► "old@mail.ru" ≠ "new@mail.ru" → проверка email
+   │                         │     │     └─► findByEmail("new@mail.ru")
+   │                         │     │           └─► emailIndex.get("new@mail.ru") → null → OK
+   │                         │     │
+   │                         │     ├─► repository.delete(a3f7b2c1)
+   │                         │     │     ├─► storage.remove(a3f7b2c1) → старый Lead
+   │                         │     │     └─► emailIndex.remove("old@mail.ru")
+   │                         │     │
+   │                         │     ├─► new Lead(a3f7b2c1, "new@mail.ru", "+7900",
+   │                         │     │            "NewCorp", QUALIFIED)
+   │                         │     │     (тот же id, новые поля)
+   │                         │     │
+   │                         │     └─► repository.save(обновлённый Lead)
+   │                         │           ├─► storage.put(a3f7b2c1, новый Lead)
+   │                         │           └─► emailIndex.put("new@mail.ru", новый Lead)
+   │                         │
+   │                         └─► return "redirect:/leads"
+   │
+   ◄── 302 Location: /leads ──┘
+
+3. Браузер идёт по редиректу
+   │
+   ├─► GET /leads
+   │                         │
+   │                         ├─► showLeads(null, model)
+   │                         │     ├─► findAll() → 10 лидов (seed)
+   │                         │     │   + обновлённый a3f7b2c1 с "new@mail.ru" и QUALIFIED
+   │                         │     └─► return "leads/list"
+   │                         │           │
+   │                         │           ▼
+   │                         │     leads/list.jte — рендерит таблицу
+   │
+   ◄── 200 OK, HTML с обновлённым списком
+```
+
+#### Где какой JTE?
+
+| Шаг | JTE | Что делает |
+|-----|-----|-----------|
+| GET `/leads/{id}/edit` | `spring/edit.jte` | Рендерит форму с предзаполненными полями |
+| POST `/leads/{id}` | — | Чистый код: нашёл → удалил → создал → сохранил → редирект |
+| GET `/leads` (после 302) | `leads/list.jte` | Рендерит обновлённую таблицу |
+
+#### Почему `delete(id)` + `new Lead(id, ...)` а не просто заменить поля?
+
+`Lead` — **record**, он иммутабельный. Нельзя написать `existing.email = "новый"`. Поэтому:
+1. Удаляем старый (чистим `storage` и `emailIndex` от старого email)
+2. Создаём новый record с тем же id, но новыми полями
+3. Сохраняем (кладёт в `storage` по старому id и в `emailIndex` по новому email)
+
+### Три ошибки в исходном showEditForm
+
+| # | Ошибка | Было | Стало |
+|---|--------|------|-------|
+| 1 | `findById(id) == null` — Optional никогда не null | `== null` | `.isEmpty()` / `.orElseThrow()` |
+| 2 | `new ResponseStatusException(...)` — создан но не брошен | `new ResponseStatusException(...)` | `throw new ResponseStatusException(...)` |
+| 3 | `model.addAttribute("lead", findById(id))` — кладётся Optional, а не Lead | `model.addAttribute("lead", optionalLead)` | `model.addAttribute("lead", optionalLead.orElseThrow())` |
+
+### Ключевые навыки BCORE-21
+
+- Работать с `@PathVariable` — извлекать id из URL
+- Использовать `orElseThrow()` — безопасно извлекать значение из Optional
+- Понимать иммутабельность record'ов — `delete + new` вместо изменения поля
+- Различать `new Exception()` (создать) и `throw new Exception()` (выбросить)
+- Применять PRG-паттерн после мутирующих операций (POST → redirect → GET)
+- Координировать два индекса (storage + emailIndex) при обновлении
+
+---
 
 ### Функциональность
 
