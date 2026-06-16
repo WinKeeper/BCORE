@@ -3541,6 +3541,109 @@ Spring сам превращает строку из URL в нужный тип:
 Если строка невалидна (например `/leads/not-a-uuid/edit` для `UUID id`) —
 Spring кинет **400 Bad Request**, даже не дойдя до метода.
 
+### Тестирование контроллера с MockMvc и моками
+
+#### Мокинг: `when().thenReturn()` — заглушка для Optional
+
+`findById()` возвращает `Optional<Lead>`, не `Lead`. В тесте нет ни БД, ни репозитория — вместо настоящего сервиса используется **мок**. Но мок не умеет сам искать лидов по id. Ему нужно явно сказать что возвращать.
+
+```java
+Lead existing = new Lead(id, "a@b.com", "+7900", "Corp", NEW);
+
+// ❌ Ошибка: findById возвращает Optional<Lead>, а не Lead
+when(leadService.findById(id)).thenReturn(existing);
+
+// ✅ Правильно: заворачиваем в Optional.of()
+when(leadService.findById(id)).thenReturn(Optional.of(existing));
+```
+
+**Почему `Optional.of()` а не просто `existing`:**
+
+```
+Метод объявлен как:    public Optional<Lead> findById(UUID id)
+                                                                 ↑
+                                                         возвращает Optional, не Lead
+
+when().thenReturn() должен вернуть ТОТ ЖЕ тип что и метод.
+Optional.of(existing)  →  Optional<Lead>  ✅
+existing                →  Lead            ❌ несоответствие типов
+```
+
+**Почему без `when()` тест упадёт:**
+
+```
+Без when(): leadService.findById(id)
+              │
+              └─► мок по умолчанию возвращает null (для объектов)
+                  │
+                  ▼
+              .orElseThrow() вызывается на null → NullPointerException
+              тест падает, контроллер даже не доходит до return
+```
+
+**Для 404 теста — обратный случай:**
+
+```java
+when(leadService.findById(id)).thenReturn(Optional.empty());
+//                                                    ↑
+//                                         пустой Optional → orElseThrow кинет исключение
+```
+
+#### MockMvc: `perform()` + `andExpect()` — эмуляция HTTP
+
+MockMvc — это **фейковый сервер внутри теста**. Он не поднимает порт, не шлёт настоящий HTTP — а эмулирует весь DispatcherServlet внутри одного процесса.
+
+```
+mockMvc.perform(get("/leads/{id}/edit", id))
+        │         └── строит виртуальный GET-запрос с подстановкой {id}
+        │
+        ▼
+  DispatcherServlet (внутри MockMvc):
+    1. Парсит URL → находит LeadController.showEditForm()
+    2. Вызывает showEditForm(id, model)
+    3. Контроллер вызывает leadService.findById(id) — срабатывает мок
+    4. Контроллер возвращает "spring/edit"
+    │
+    ▼
+  MockMvc собирает ответ:
+    - HTTP-статус
+    - Имя view
+    - Model (ключи и значения)
+    │
+    ▼
+  andExpect(...) — проверки (assert'ы):
+
+    .andExpect(status().isOk())
+         ↑
+    читает HTTP-статус из ответа, assert == 200
+
+    .andExpect(view().name("spring/edit"))
+         ↑
+    читает view name, assert == "spring/edit"
+
+    .andExpect(model().attributeExists("lead"))
+         ↑
+    проверяет что ключ "lead" есть в Model (значение не важно)
+
+    .andExpect(model().attribute("lead", existing))
+         ↑
+    достаёт "lead" из Model, сравнивает с existing через equals()
+```
+
+#### Что MockMvc НЕ делает в standalone setup
+
+| | standalone MockMvc | @SpringBootTest |
+|---|---|---|
+| Поднимает порт | ❌ | ✅ |
+| Рендерит JTE | ❌ | ✅ |
+| Вызывает настоящий LeadService | ❌ (мок) | ✅ |
+| Внедряет бины через DI | ❌ | ✅ |
+| Проверяет view name | ✅ (строка) | ✅ |
+| Проверяет что шаблон компилируется | ❌ | ✅ (рендерит) |
+
+`andExpect(view().name("spring/edit"))` проверяет только что контроллер вернул строку `"spring/edit"`.
+Работает ли `edit.jte` без ошибок — проверяется только в `@SpringBootTest` (интеграционном тесте).
+
 ### Ключевые навыки BCORE-21
 
 - Работать с `@PathVariable` — извлекать id из URL
