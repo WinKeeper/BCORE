@@ -3321,7 +3321,339 @@ public class ExampleBean {
 
 ---
 
-## Code Review Checklist
+## BCORE-21: Редактирование лида
+
+### Суть
+
+Научились редактировать существующий лид: GET-форма с предзаполненными данными → POST-сохранение → редирект на список.
+
+### Ключевые концепции
+
+- **`@PathVariable UUID id`** — извлечение id из URL `/leads/{id}/edit`
+- **`@GetMapping("/leads/{id}/edit")`** — показ формы с существующими данными
+- **`@PostMapping("/leads/{id}")`** — приём изменённых данных и обновление
+- **`orElseThrow()`** — проброс исключения если Optional пуст
+- **`throw` vs `new`** — создание исключения без `throw` — потерянная строка
+- **Record иммутабельность** — нельзя `existing.email = ...`, только `delete + new`
+- **Паттерн PRG** — Post/Redirect/Get при редактировании
+
+### Полный поток редактирования: от кнопки до обновлённого списка
+
+#### LeadController — исправленный GET + новый POST
+
+```java
+@GetMapping("/leads/{id}/edit")
+public String showEditForm(@PathVariable UUID id, Model model) {
+    Lead lead = leadService.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found: " + id));
+
+    model.addAttribute("lead", lead);
+    return "spring/edit";
+}
+
+@PostMapping("/leads/{id}")
+public String updateLead(@PathVariable UUID id, @ModelAttribute Lead lead) {
+    leadService.updateLead(id, lead);
+    return "redirect:/leads";
+}
+```
+
+#### LeadService — новый метод updateLead
+
+```java
+public Lead updateLead(UUID id, Lead updated) {
+    // 1. Находим существующий (или исключение)
+    Lead existing = findById(id)
+        .orElseThrow(() -> new NoSuchElementException("Lead not found: " + id));
+
+    // 2. Если email поменялся — проверяем что новый не занят другим лидом
+    if (!existing.email().equals(updated.email())) {
+        Optional<Lead> byEmail = findByEmail(updated.email());
+        if (byEmail.isPresent()) {
+            throw new IllegalStateException("Email already taken: " + updated.email());
+        }
+    }
+
+    // 3. Удаляем старый из storage и emailIndex
+    repository.delete(id);
+
+    // 4. Создаём новый record с тем же id (record иммутабельный)
+    Lead saved = new Lead(id, updated.email(), updated.phone(),
+        updated.company(), updated.status());
+
+    // 5. Сохраняем — кладёт в storage по id и в emailIndex по новому email
+    repository.save(saved);
+    return saved;
+}
+```
+
+#### Пошаговая схема всего цикла
+
+```
+                                                     InMemory
+Браузер                   LeadController             LeadRepository
+──────                   ──────────────             ──────────────
+
+1. Пользователь нажал «Edit» в списке
+   │
+   ├─► GET /leads/a3f7b2c1/edit
+   │                         │
+   │                         ├─► leadService.findById(a3f7b2c1)
+   │                         │     └─► repository.findById(a3f7b2c1)
+   │                         │           └─► storage.get(a3f7b2c1)
+   │                         │               → Lead("a3f7b2c1", "old@mail.ru", "+7900", "OldCorp", NEW)
+   │                         │
+   │                         ├─► model.addAttribute("lead", найденный Lead)
+   │                         │
+   │                         └─► return "spring/edit"
+   │                               │
+   │                               ▼
+   │                         spring/edit.jte:
+   │                           ${lead.email()}   → "old@mail.ru"
+   │                           ${lead.phone()}   → "+7900"
+   │                           ${lead.company()} → "OldCorp"
+   │                           ${lead.status()}  → NEW
+   │
+   ◄── 200 OK, HTML форма ────┘
+   │
+   │   (поля предзаполнены старыми данными — пользователь видит их и меняет)
+
+2. Пользователь изменил email на "new@mail.ru", нажал «Обновить»
+   │
+   ├─► POST /leads/a3f7b2c1
+   │    email=new@mail.ru
+   │    phone=+7900
+   │    company=NewCorp
+   │    status=QUALIFIED
+   │                         │
+   │                         ├─► @ModelAttribute собирает:
+   │                         │   Lead(null, "new@mail.ru", "+7900", "NewCorp", QUALIFIED)
+   │                         │   (id в форме hidden → null в record, не страшно —
+   │                         │    id мы берём из @PathVariable, не из формы)
+   │                         │
+   │                         ├─► updateLead(a3f7b2c1, lead)
+   │                         │     │
+   │                         │     ├─► findById(a3f7b2c1)
+   │                         │     │     └─► storage.get(a3f7b2c1)
+   │                         │     │         → Optional.of(Lead("a3f7b2c1", "old@mail.ru",...))
+   │                         │     │
+   │                         │     ├─► "old@mail.ru" ≠ "new@mail.ru" → проверка email
+   │                         │     │     └─► findByEmail("new@mail.ru")
+   │                         │     │           └─► emailIndex.get("new@mail.ru") → null → OK
+   │                         │     │
+   │                         │     ├─► repository.delete(a3f7b2c1)
+   │                         │     │     ├─► storage.remove(a3f7b2c1) → старый Lead
+   │                         │     │     └─► emailIndex.remove("old@mail.ru")
+   │                         │     │
+   │                         │     ├─► new Lead(a3f7b2c1, "new@mail.ru", "+7900",
+   │                         │     │            "NewCorp", QUALIFIED)
+   │                         │     │     (тот же id, новые поля)
+   │                         │     │
+   │                         │     └─► repository.save(обновлённый Lead)
+   │                         │           ├─► storage.put(a3f7b2c1, новый Lead)
+   │                         │           └─► emailIndex.put("new@mail.ru", новый Lead)
+   │                         │
+   │                         └─► return "redirect:/leads"
+   │
+   ◄── 302 Location: /leads ──┘
+
+3. Браузер идёт по редиректу
+   │
+   ├─► GET /leads
+   │                         │
+   │                         ├─► showLeads(null, model)
+   │                         │     ├─► findAll() → 10 лидов (seed)
+   │                         │     │   + обновлённый a3f7b2c1 с "new@mail.ru" и QUALIFIED
+   │                         │     └─► return "leads/list"
+   │                         │           │
+   │                         │           ▼
+   │                         │     leads/list.jte — рендерит таблицу
+   │
+   ◄── 200 OK, HTML с обновлённым списком
+```
+
+#### Где какой JTE?
+
+| Шаг | JTE | Что делает |
+|-----|-----|-----------|
+| GET `/leads/{id}/edit` | `spring/edit.jte` | Рендерит форму с предзаполненными полями |
+| POST `/leads/{id}` | — | Чистый код: нашёл → удалил → создал → сохранил → редирект |
+| GET `/leads` (после 302) | `leads/list.jte` | Рендерит обновлённую таблицу |
+
+#### Почему `delete(id)` + `new Lead(id, ...)` а не просто заменить поля?
+
+`Lead` — **record**, он иммутабельный. Нельзя написать `existing.email = "новый"`. Поэтому:
+1. Удаляем старый (чистим `storage` и `emailIndex` от старого email)
+2. Создаём новый record с тем же id, но новыми полями
+3. Сохраняем (кладёт в `storage` по старому id и в `emailIndex` по новому email)
+
+### Три ошибки в исходном showEditForm
+
+| # | Ошибка | Было | Стало |
+|---|--------|------|-------|
+| 1 | `findById(id) == null` — Optional никогда не null | `== null` | `.isEmpty()` / `.orElseThrow()` |
+| 2 | `new ResponseStatusException(...)` — создан но не брошен | `new ResponseStatusException(...)` | `throw new ResponseStatusException(...)` |
+| 3 | `model.addAttribute("lead", findById(id))` — кладётся Optional, а не Lead | `model.addAttribute("lead", optionalLead)` | `model.addAttribute("lead", optionalLead.orElseThrow())` |
+
+### @PathVariable — как Spring достаёт id из URL
+
+`{id}` в `@GetMapping("/leads/{id}/edit")` — это **плейсхолдер**, который Spring заменяет на реальное значение из URL.
+
+```
+@GetMapping("/leads/{id}/edit")
+                 ↑  шаблон пути
+Браузер: GET /leads/a3f7b2c1-9d4e-.../edit
+                        ↑  конкретный UUID из адресной строки
+```
+
+#### Цепочка внутри Spring
+
+```
+1. DispatcherServlet получает GET /leads/a3f7b2c1.../edit
+2. Сопоставляет с шаблоном "/leads/{id}/edit" → совпало
+3. Извлекает часть пути между /leads/ и /edit → "a3f7b2c1-9d4e-..."
+4. Видит @PathVariable UUID id:
+   - Тип параметра: UUID
+   - Имя переменной: id (совпадает с {id})
+5. Вызывает UUID.fromString("a3f7b2c1...") → UUID объект
+6. Передаёт: showEditForm(UUID("a3f7b2c1..."), model)
+```
+
+#### Если имя не совпадает
+
+```java
+@GetMapping("/leads/{leadId}/edit")
+public String showEditForm(@PathVariable("leadId") UUID id, Model model) {
+//                            ^ явная привязка к переменной из URL
+}
+```
+
+#### Автоконвертация типов
+
+Spring сам превращает строку из URL в нужный тип:
+
+| Шаблон | URL | Java-тип |
+|--------|-----|----------|
+| `/{id}` | `abc-123` | `UUID` |
+| `/{id}` | `42` | `Long`, `int` |
+| `/{name}` | `hello` | `String` |
+
+Если строка невалидна (например `/leads/not-a-uuid/edit` для `UUID id`) —
+Spring кинет **400 Bad Request**, даже не дойдя до метода.
+
+### Тестирование контроллера с MockMvc и моками
+
+#### Мокинг: `when().thenReturn()` — заглушка для Optional
+
+`findById()` возвращает `Optional<Lead>`, не `Lead`. В тесте нет ни БД, ни репозитория — вместо настоящего сервиса используется **мок**. Но мок не умеет сам искать лидов по id. Ему нужно явно сказать что возвращать.
+
+```java
+Lead existing = new Lead(id, "a@b.com", "+7900", "Corp", NEW);
+
+// ❌ Ошибка: findById возвращает Optional<Lead>, а не Lead
+when(leadService.findById(id)).thenReturn(existing);
+
+// ✅ Правильно: заворачиваем в Optional.of()
+when(leadService.findById(id)).thenReturn(Optional.of(existing));
+```
+
+**Почему `Optional.of()` а не просто `existing`:**
+
+```
+Метод объявлен как:    public Optional<Lead> findById(UUID id)
+                                                                 ↑
+                                                         возвращает Optional, не Lead
+
+when().thenReturn() должен вернуть ТОТ ЖЕ тип что и метод.
+Optional.of(existing)  →  Optional<Lead>  ✅
+existing                →  Lead            ❌ несоответствие типов
+```
+
+**Почему без `when()` тест упадёт:**
+
+```
+Без when(): leadService.findById(id)
+              │
+              └─► мок по умолчанию возвращает null (для объектов)
+                  │
+                  ▼
+              .orElseThrow() вызывается на null → NullPointerException
+              тест падает, контроллер даже не доходит до return
+```
+
+**Для 404 теста — обратный случай:**
+
+```java
+when(leadService.findById(id)).thenReturn(Optional.empty());
+//                                                    ↑
+//                                         пустой Optional → orElseThrow кинет исключение
+```
+
+#### MockMvc: `perform()` + `andExpect()` — эмуляция HTTP
+
+MockMvc — это **фейковый сервер внутри теста**. Он не поднимает порт, не шлёт настоящий HTTP — а эмулирует весь DispatcherServlet внутри одного процесса.
+
+```
+mockMvc.perform(get("/leads/{id}/edit", id))
+        │         └── строит виртуальный GET-запрос с подстановкой {id}
+        │
+        ▼
+  DispatcherServlet (внутри MockMvc):
+    1. Парсит URL → находит LeadController.showEditForm()
+    2. Вызывает showEditForm(id, model)
+    3. Контроллер вызывает leadService.findById(id) — срабатывает мок
+    4. Контроллер возвращает "spring/edit"
+    │
+    ▼
+  MockMvc собирает ответ:
+    - HTTP-статус
+    - Имя view
+    - Model (ключи и значения)
+    │
+    ▼
+  andExpect(...) — проверки (assert'ы):
+
+    .andExpect(status().isOk())
+         ↑
+    читает HTTP-статус из ответа, assert == 200
+
+    .andExpect(view().name("spring/edit"))
+         ↑
+    читает view name, assert == "spring/edit"
+
+    .andExpect(model().attributeExists("lead"))
+         ↑
+    проверяет что ключ "lead" есть в Model (значение не важно)
+
+    .andExpect(model().attribute("lead", existing))
+         ↑
+    достаёт "lead" из Model, сравнивает с existing через equals()
+```
+
+#### Что MockMvc НЕ делает в standalone setup
+
+| | standalone MockMvc | @SpringBootTest |
+|---|---|---|
+| Поднимает порт | ❌ | ✅ |
+| Рендерит JTE | ❌ | ✅ |
+| Вызывает настоящий LeadService | ❌ (мок) | ✅ |
+| Внедряет бины через DI | ❌ | ✅ |
+| Проверяет view name | ✅ (строка) | ✅ |
+| Проверяет что шаблон компилируется | ❌ | ✅ (рендерит) |
+
+`andExpect(view().name("spring/edit"))` проверяет только что контроллер вернул строку `"spring/edit"`.
+Работает ли `edit.jte` без ошибок — проверяется только в `@SpringBootTest` (интеграционном тесте).
+
+### Ключевые навыки BCORE-21
+
+- Работать с `@PathVariable` — извлекать id из URL
+- Использовать `orElseThrow()` — безопасно извлекать значение из Optional
+- Понимать иммутабельность record'ов — `delete + new` вместо изменения поля
+- Различать `new Exception()` (создать) и `throw new Exception()` (выбросить)
+- Применять PRG-паттерн после мутирующих операций (POST → redirect → GET)
+- Координировать два индекса (storage + emailIndex) при обновлении
+
+---
 
 ### Функциональность
 

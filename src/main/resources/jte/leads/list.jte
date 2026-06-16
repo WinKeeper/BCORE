@@ -41,6 +41,7 @@
                 <th class="px-4 py-2 text-left">Telephone</th>
                 <th class="px-4 py-2 text-left">Company</th>
                 <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-2 text-left">Редактировать</th>
             </tr>
             </thead>
             <tbody>
@@ -53,6 +54,12 @@
                             <span class="px-2 py-1 rounded text-sm bg-green-100 text-green-800">
                                 ${lead.status()}
                             </span>
+                    </td>
+                    <td class="px-4 py-2">
+                        <a href="/leads/${lead.id().toString()}/edit"
+                           class="text-blue-600 hover:underline">
+                            Update
+                        </a>
                     </td>
                 </tr>
             @endfor

@@ -2,6 +2,7 @@ package ru.mentee.power.crm.spring.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,6 +41,24 @@ public class LeadService {
 
   public Lead addLead(Lead lead) {
     return addLead(lead.email(), lead.phone(), lead.company(), lead.status());
+  }
+
+  public Lead updateLead(UUID id, Lead updatedLead) {
+    Lead existing =
+        findById(id).orElseThrow(() -> new NoSuchElementException("Lead not found: " + id));
+
+    if (!existing.email().equals(updatedLead.email())) {
+      Optional<Lead> byEmail = findByEmail(updatedLead.email());
+      if (byEmail.isPresent()) {
+        throw new IllegalStateException("Email us already taken: " + updatedLead.email());
+      }
+    }
+
+    repository.delete(id);
+    Lead saved = new Lead(id, updatedLead.email(), updatedLead.phone(), updatedLead.company(),
+        updatedLead.status());
+    repository.save(saved);
+    return saved;
   }
 
   public List<Lead> findAll() {
