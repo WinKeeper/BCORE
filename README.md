@@ -3653,6 +3653,133 @@ mockMvc.perform(get("/leads/{id}/edit", id))
 - Применять PRG-паттерн после мутирующих операций (POST → redirect → GET)
 - Координировать два индекса (storage + emailIndex) при обновлении
 
+## BCORE-22: Удаление лида через POST
+
+### Суть
+
+Добавлена кнопка удаления лида из таблицы. Ключевое правило: **DELETE-операция всегда через POST-форму, никогда через GET-ссылку.**
+
+### Почему не GET
+
+| Способ | Безопасно? | Почему |
+|--------|:---:|--------|
+| `<a href="/leads/{id}/delete">` | ❌ | GET-запрос — браузер, поисковик, префетч могут случайно удалить |
+| `<form method="post">` | ✅ | POST — браузер никогда не шлёт сам, только по явному клику |
+
+Бытовая аналогия: кнопка «Уволить сотрудника» не должна срабатывать от перехода по ссылке из поисковика.
+
+### Код
+
+**LeadService.deleteLead():**
+
+```java
+public void deleteLead(UUID id) {
+    findById(id).orElseThrow(() -> new NoSuchElementException("Lead not found: " + id));
+    repository.delete(id);
+    log.info("Lead with id: {} successfully deleted", id);
+}
+```
+
+**LeadController.deleteLead():**
+
+```java
+@PostMapping("/leads/{id}/delete")
+public String deleteLead(@PathVariable UUID id) {
+    try {
+        leadService.deleteLead(id);
+    } catch (NoSuchElementException e) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found: " + id);
+    }
+    return "redirect:/leads";
+}
+```
+
+**list.jte — inline форма в таблице:**
+
+```html
+<td class="px-4 py-2">
+    <form method="post" action="/leads/${lead.id().toString()}/delete" class="inline">
+        <button type="submit"
+                class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-700">
+            Delete
+        </button>
+    </form>
+</td>
+```
+
+`class="inline"` (Tailwind) нужен чтобы форма не стала блочным элементом внутри `<td>` и не сломала строку таблицы.
+
+### Ключевые навыки BCORE-22
+
+- Использовать POST, а не GET для мутирующих операций (delete, update, create)
+- Обрабатывать `NoSuchElementException` → HTTP 404 через `ResponseStatusException`
+- Мокировать void-методы через `doThrow().when()` (не `when().thenReturn()`)
+- Проверять вызов void-методов через `verify(mock).method()`
+
+## BCORE-23: Stream API — filter() vs map()
+
+### Суть
+
+Частая ошибка начинающих — путать `filter()` и `map()`:
+
+| Метод | Что делает | Входной тип | Выходной тип |
+|-------|-----------|-------------|--------------|
+| `filter()` | Оставляет элементы по условию | `Stream<Lead>` | `Stream<Lead>` |
+| `map()` | Трансформирует каждый элемент | `Stream<Lead>` | `Stream<String>` |
+
+```java
+// filter() — оставить только NEW-лиды (тип не меняется)
+List<Lead> newLeads = leads.stream()
+    .filter(lead -> lead.status() == LeadStatus.NEW)
+    .collect(Collectors.toList());
+
+// map() — превратить лидов в список email'ов (тип меняется)
+List<String> emails = leads.stream()
+    .map(Lead::email)
+    .collect(Collectors.toList());
+```
+
+### Как запомнить
+
+```
+filter:  «пропусти или отфильтруй» — сито
+         Stream<Lead> → Stream<Lead> (тот же тип, меньше элементов)
+
+map:     «преврати одно в другое» — конвейер
+         Stream<Lead> → Stream<String> (другой тип, столько же элементов)
+```
+
+### Цепочка filter → map
+
+```java
+// Сначала отфильтровали, потом преобразовали в email'ы
+List<String> contactedEmails = leads.stream()
+    .filter(lead -> lead.status() == LeadStatus.CONTACTED)
+    .map(Lead::email)
+    .collect(Collectors.toList());
+// [contacted0@mail.ru, contacted1@mail.ru, ...]
+```
+
+### В проекте
+
+В `LeadService.findByStatus()` уже используется `filter()`:
+
+```java
+public List<Lead> findByStatus(LeadStatus status) {
+    return repository.findAll().stream()
+        .filter(lead -> lead.status().equals(status))  // ← filter, не map
+        .collect(Collectors.toList());
+}
+```
+
+Задача — отобрать подмножество лидов, а не преобразовать их в другие объекты. Если позже понадобится REST API — добавится `map()` после `filter()`: сначала отфильтровали, потом преобразовали в DTO.
+
+### Ключевые навыки BCORE-23
+
+- Различать `filter()` (сито, тот же тип) и `map()` (конвейер, другой тип)
+- Строить цепочки `filter() → map()` для сложных операций
+- Использовать method references (`Lead::email`) для читаемости
+
 ---
 
 ### Функциональность
@@ -4428,4 +4555,51 @@ public String createLead(@RequestParam String email,
 // @ModelAttribute — чисто
 public String createLead(@ModelAttribute Lead lead) { ...}
 ```
+
+### Идемпотентность — происхождение, корень, смысл
+
+#### Этимология
+
+```
+idem   +   potens   (лат.)
+тот же     сила / способность
+
+буквально: «способность быть тем же»
+```
+
+- **idem** — «тот же самый» (оттуда же `identity`, `identical`, испанское `ídem`)
+- **potens** — «мощный, способный» (оттуда же `потенциал`, `potential`, `omnipotent`)
+
+Термин пришёл из математики (1870-е, Benjamin Peirce), где `f(x)` идемпотентна если `f(f(x)) = f(x)`.
+
+#### Смысл в программировании
+
+**Свойство операции: повторный вызов с теми же входными данными даёт тот же результат, что и первый. Сколько раз ни вызывай — эффект как от одного раза.**
+
+| HTTP-метод | Идемпотентен? | Почему |
+|------------|:---:|--------|
+| `GET /leads` | ✅ | Сколько ни читай список — данные те же |
+| `PUT /leads/{id}` | ✅ | 10 раз обновил email на "a@b.com" — он всё тот же после 1-го раза |
+| `DELETE /leads/{id}` | ✅ | Первый раз удалил → 200. Второй раз → 404. Состояние сервера то же — лида нет |
+| `POST /leads` | ❌ | Каждый POST создаёт **новый** лид. 10 раз = 10 лидов |
+
+#### Почему DELETE идемпотентен
+
+```
+Состояние до:             После 1-го DELETE:        После 2-го DELETE:
+┌──────────┐              ┌──────────┐               ┌──────────┐
+│ lead_42  │              │          │               │          │
+└──────────┘              └──────────┘               └──────────┘
+
+                            лида нет                    лида нет
+                                                        (всё ещё)
+```
+
+С точки зрения **сервера**: первое удаление = лида нет. Второе = лида всё ещё нет. Состояние совпадает. Клиент может получить 404, но ресурс отсутствует в обоих случаях — система пришла к тому же состоянию.
+
+#### Русский аналог
+
+«Идемпотентный» = «сколько ни повторяй — результат не меняется».
+
+Как выключатель света: сколько ни щёлкай выключенный выключатель вниз — свет не зажжётся. Состояние системы (свет выключен) — неизменно.
 
