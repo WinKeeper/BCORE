@@ -59,6 +59,13 @@ public class LeadService {
         updatedLead.status());
     repository.save(saved);
     return saved;
+
+  }
+
+  public void deleteLead(UUID id) {
+    findById(id).orElseThrow(() -> new NoSuchElementException("Lead not found: " + id));
+    repository.delete(id);
+    log.info("Lead with id: " + id + "successfully deleted");
   }
 
   public List<Lead> findAll() {

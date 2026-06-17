@@ -42,6 +42,7 @@
                 <th class="px-4 py-2 text-left">Company</th>
                 <th class="px-4 py-2 text-left">Status</th>
                 <th class="px-4 py-2 text-left">Редактировать</th>
+                <th class="px-4 py-2 text-left">Удалить</th>
             </tr>
             </thead>
             <tbody>
@@ -58,8 +59,19 @@
                     <td class="px-4 py-2">
                         <a href="/leads/${lead.id().toString()}/edit"
                            class="text-blue-600 hover:underline">
-                            Update
+                            Редактировать
                         </a>
+                    </td>
+                    <td class="px-4 py-2">
+                        <form method="post" action="/leads/${lead.id().toString()}/delete">
+                            <button
+                                    type="submit"
+                                    class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-600 inline"
+                                    onclick="return confirm('Удалить лида ${lead.email()}?')"
+                            >
+                                Удалить
+                            </button>
+                        </form>
                     </td>
                 </tr>
             @endfor

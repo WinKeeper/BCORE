@@ -3,6 +3,7 @@ package ru.mentee.power.crm.spring.controller;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -124,6 +126,35 @@ class LeadControllerTest {
     // Then
     mockMvc.perform(get("/leads/{id}/edit", id))
         .andExpect(status().is4xxClientError());
+  }
+
+  @Test
+  @DisplayName("Should redirect after lead deleted")
+  void shouldRedirectWhenLeadDeleted() throws Exception {
+    // Given
+    UUID id = UUID.randomUUID();
+
+    // When
+    mockMvc.perform(post("/leads/{id}/delete", id))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/leads"));
+
+    verify(leadService).deleteLead(id);
+  }
+
+  @Test
+  @DisplayName("Throws exception when deleting non existing lead")
+  void shouldThrow404WhenDeleteNonExistingLead() throws Exception {
+    // Given
+    UUID id = UUID.randomUUID();
+
+    // When
+    doThrow(new NoSuchElementException("Lead not found: " + id))
+        .when(leadService).deleteLead(id);
+
+    // Then
+    mockMvc.perform(post("/leads/{id}/delete", id))
+        .andExpect(status().isNotFound());
   }
 
 }

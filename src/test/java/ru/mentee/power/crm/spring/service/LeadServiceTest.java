@@ -1,10 +1,13 @@
 package ru.mentee.power.crm.spring.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -155,6 +158,69 @@ class LeadServiceTest {
     List<Lead> result = service.findByStatus(LeadStatus.CONVERTED);
 
     assertThat(result).hasSize(0);
+  }
+
+  @Test
+  @DisplayName("Should update all fields of existing lead")
+  void shouldUpdateAllFields() {
+    Lead created = service.addLead("old@mail.ru", "+7900", "OldCorp", LeadStatus.NEW);
+
+    service.updateLead(created.id(),
+        new Lead(null, "new@mail.ru", "+7999", "NewCorp", LeadStatus.CONTACTED));
+
+    Lead updated = service.findById(created.id()).orElseThrow();
+    assertThat(updated.email()).isEqualTo("new@mail.ru");
+    assertThat(updated.phone()).isEqualTo("+7999");
+    assertThat(updated.company()).isEqualTo("NewCorp");
+    assertThat(updated.status()).isEqualTo(LeadStatus.CONTACTED);
+  }
+
+  @Test
+  @DisplayName("Should free old email after update so another lead can use it")
+  void shouldFreeOldEmailAfterUpdate() {
+    service.addLead("old@mail.ru", "+7900", "A", LeadStatus.NEW);
+
+    Lead updated = new Lead(null, "new@mail.ru", "+7900", "A", LeadStatus.NEW);
+    service.updateLead(service.findByEmail("old@mail.ru").orElseThrow().id(), updated);
+
+    assertThatCode(() -> service.addLead("old@mail.ru", "+7900", "B", LeadStatus.NEW))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  @DisplayName("Should throw when new email is already taken by another lead")
+  void shouldThrowWhenEmailAlreadyTaken() {
+    service.addLead("taken@mail.ru", "+7900", "Other", LeadStatus.NEW);
+    Lead lead = service.addLead("mine@mail.ru", "+7900", "Mine", LeadStatus.NEW);
+
+    assertThatThrownBy(() -> service.updateLead(lead.id(),
+        new Lead(null, "taken@mail.ru", "+7900", "Mine", LeadStatus.NEW)))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Email");
+  }
+
+  @Test
+  @DisplayName("Should update lead even when email stays the same")
+  void shouldUpdateWhenEmailDoesNotChange() {
+    Lead lead = service.addLead("same@mail.ru", "+7900", "OldCorp", LeadStatus.NEW);
+
+    service.updateLead(lead.id(),
+        new Lead(null, "same@mail.ru", "+7999", "NewCorp", LeadStatus.QUALIFIED));
+
+    Lead updated = service.findById(lead.id()).orElseThrow();
+    assertThat(updated.email()).isEqualTo("same@mail.ru");
+    assertThat(updated.status()).isEqualTo(LeadStatus.QUALIFIED);
+  }
+
+  @Test
+  @DisplayName("Should throw when updating non-existing lead")
+  void shouldThrowWhenLeadNotFound() {
+    UUID nonExistingId = UUID.randomUUID();
+
+    assertThatThrownBy(() -> service.updateLead(nonExistingId,
+        new Lead(null, "x@mail.ru", "+7900", "X", LeadStatus.NEW)))
+        .isInstanceOf(NoSuchElementException.class)
+        .hasMessageContaining("Lead not found");
   }
 
 }

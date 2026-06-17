@@ -1,6 +1,7 @@
 package ru.mentee.power.crm.spring.controller;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -69,6 +70,16 @@ public class LeadController {
   @PostMapping("/leads/{id}")
   public String updateLead(@PathVariable UUID id, @ModelAttribute Lead lead) {
     leadService.updateLead(id, lead);
+    return ("redirect:/leads");
+  }
+
+  @PostMapping("/leads/{id}/delete")
+  public String deleteLead(@PathVariable UUID id) {
+    try {
+      leadService.deleteLead(id);
+    } catch (NoSuchElementException e) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found: " + id);
+    }
     return ("redirect:/leads");
   }
 
