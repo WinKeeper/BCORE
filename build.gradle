@@ -90,6 +90,19 @@ jacocoTestReport {
     }
 }
 
+tasks.register('testReport') {
+    group = 'verification'
+    description = 'Запуск тестов, генерация JaCoCo-отчёта и открытие в браузере'
+    dependsOn test, jacocoTestReport
+
+    doLast {
+        java.awt.Desktop.getDesktop().browse(
+            jacocoTestReport.reports.html.outputLocation.get()
+                .file("index.html").asFile.toURI()
+        )
+    }
+}
+
 // Настройка проверки покрытия (минимум 80%)
 jacocoTestCoverageVerification {
     dependsOn jacocoTestReport
