@@ -1,24 +1,45 @@
 @param java.util.List<ru.mentee.power.crm.model.Lead> leads
 @param ru.mentee.power.crm.model.LeadStatus currentFilter
+@param String search
 
 @template.layout.main(content = @`
-    <div class="mb-4 flex justify-between items-center">
-        <a href="/leads"
-           class="px-4 py-2 rounded ${currentFilter == null ? "bg-blue-500 text-white" : "bg-gray-200"}">
-            Все
-        </a>
-        <a href="/leads?status=NEW"
-           class="px-4 py-2 rounded ${currentFilter == ru.mentee.power.crm.model.LeadStatus.NEW ? "bg-blue-500 text-white" : "bg-gray-200"}">
-            NEW
-        </a>
-        <a href="/leads?status=CONTACTED"
-           class="px-4 py-2 rounded ${currentFilter == ru.mentee.power.crm.model.LeadStatus.CONTACTED ? "bg-blue-500 text-white" : "bg-gray-200"}">
-            CONTACTED
-        </a>
-        <a href="/leads?status=QUALIFIED"
-           class="px-4 py-2 rounded ${currentFilter == ru.mentee.power.crm.model.LeadStatus.QUALIFIED ? "bg-blue-500 text-white" : "bg-gray-200"}">
-            QUALIFIED
-        </a>
+    <div class="bg-white shadow rounded-lg p-4 mb-6 flex justify-between items-center">
+        <form method="get" action="/leads">
+            <input
+                    type="text"
+                    name="search"
+                    value="${search}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    placeholder="Email или компания"
+            >
+            <select
+                    name="status"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="" selected="${currentFilter == null}">
+                    Все статусы
+                </option>
+                <option value="NEW" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.NEW}">
+                    Новый лид
+                </option>
+                <option value="CONTACTED" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.CONTACTED}">
+                    Связались
+                </option>
+                <option value="QUALIFIED" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.QUALIFIED}">
+                    Целевой
+                </option>
+                <option value="CONVERTED" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.CONVERTED}">
+                    Закрыт (успешно)
+                </option>
+            </select>
+            <button
+                    type="submit"
+                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+                Найти
+            </button>
+            <a href="/leads" class="w-full px-3 py-2 border border-gray-300 rounded-md">Сбросить</a>
+        </form>
+
         <a href="/leads/new"
            class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
             + Добавить лида

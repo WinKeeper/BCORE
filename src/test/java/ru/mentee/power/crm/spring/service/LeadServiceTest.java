@@ -223,4 +223,15 @@ class LeadServiceTest {
         .hasMessageContaining("Lead not found");
   }
 
+  @Test
+  @DisplayName("BCORE-23: Should filter by status returning only matching leads")
+  void shouldFindOnlyLeadsWithGivenStatus() {
+    seedStandardLeads();  // 3 NEW + 5 CONTACTED + 2 QUALIFIED
+
+    List<Lead> result = service.findLeads("", LeadStatus.NEW);
+
+    assertThat(result).hasSize(3);
+    assertThat(result).allMatch(lead -> lead.status() == LeadStatus.NEW);
+  }
+
 }

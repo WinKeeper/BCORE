@@ -98,7 +98,7 @@ class LeadControllerTest {
 
   @Test
   @DisplayName("Should show edit form with existing lead data")
-  void shouldReturnCorrectStateWhen() throws Exception {
+  void shouldReturnCorrectStateWhenEditFormCalls() throws Exception {
     // Given
     UUID id = UUID.randomUUID();
     Lead existing = new Lead(id, "email1@mail.ru", "123123", "Corp", LeadStatus.NEW);
@@ -155,6 +155,56 @@ class LeadControllerTest {
     // Then
     mockMvc.perform(post("/leads/{id}/delete", id))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName("Should return only leads with filtered email or comp")
+  void shouldReturnFilteredListWhenFilterIsChoosen() throws Exception {
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+    List<Lead> filtered = List.of(
+        new Lead(id1, "NEW0@mail.ru", "+7900", "Company", LeadStatus.NEW),
+        new Lead(id2, "NEW1@mail.ru", "+7901", "Company", LeadStatus.NEW)
+    );
+
+    when(leadService.findLeads("NEW0@mail.ru", LeadStatus.NEW)).thenReturn(filtered);
+
+    mockMvc.perform(get("/leads")
+            .param("search", "NEW0@mail.ru")
+            .param("status", "NEW"))
+        .andExpectAll(
+            status().isOk(),
+            model().attributeExists("leads"),
+            model().attribute("leads", filtered),
+            model().attribute("search", "NEW0@mail.ru")
+        );
+
+    verify(leadService).findLeads("NEW0@mail.ru", LeadStatus.NEW);
+  }
+
+  @Test
+  @DisplayName("Return only leads with choosen status")
+  void shouldReturnLeadsWithChosenStatus() throws Exception {
+    List<Lead> filtered = List.of(
+        new Lead(UUID.randomUUID(), "NEW0@mail.ru", "+7900", "Company", LeadStatus.NEW),
+        new Lead(UUID.randomUUID(), "NEW1@mail.ru", "+7901", "Company", LeadStatus.NEW),
+        new Lead(UUID.randomUUID(), "QUALIFIED0@mail.ru", "+7901", "Company", LeadStatus.QUALIFIED),
+        new Lead(UUID.randomUUID(), "CONVERTED0@mail.ru", "+7901", "Company", LeadStatus.CONVERTED)
+    );
+
+    when(leadService.findLeads("", LeadStatus.NEW)).thenReturn(filtered);
+
+    mockMvc.perform(get("/leads")
+            .param("search", "")
+            .param("status", "NEW"))
+        .andExpectAll(
+            status().isOk(),
+            model().attributeExists("leads"),
+            model().attribute("leads", filtered),
+            model().attribute("status", LeadStatus.NEW)
+        );
+
+    verify(leadService).findLeads("", LeadStatus.NEW);
   }
 
 }
