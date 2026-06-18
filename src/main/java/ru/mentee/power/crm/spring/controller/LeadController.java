@@ -55,7 +55,7 @@ public class LeadController {
     List<Lead> leads = leadService.findLeads(search, status);
 
     model.addAttribute("leads", leads);
-    model.addAttribute("status", status != null ? status : "");
+    model.addAttribute("status", status);
     model.addAttribute("search", search != null ? search : "");
 
     return "leads/list";

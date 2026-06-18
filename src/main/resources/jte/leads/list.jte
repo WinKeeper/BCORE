@@ -1,5 +1,5 @@
 @param java.util.List<ru.mentee.power.crm.model.Lead> leads
-@param ru.mentee.power.crm.model.LeadStatus currentFilter
+@param ru.mentee.power.crm.model.LeadStatus status
 @param String search
 
 @template.layout.main(content = @`
@@ -15,19 +15,19 @@
             <select
                     name="status"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                <option value="" selected="${currentFilter == null}">
+                <option value="" selected="${status == null}">
                     Все статусы
                 </option>
-                <option value="NEW" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.NEW}">
+                <option value="NEW" selected="${status == ru.mentee.power.crm.model.LeadStatus.NEW}">
                     Новый лид
                 </option>
-                <option value="CONTACTED" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.CONTACTED}">
+                <option value="CONTACTED" selected="${status == ru.mentee.power.crm.model.LeadStatus.CONTACTED}">
                     Связались
                 </option>
-                <option value="QUALIFIED" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.QUALIFIED}">
+                <option value="QUALIFIED" selected="${status == ru.mentee.power.crm.model.LeadStatus.QUALIFIED}">
                     Целевой
                 </option>
-                <option value="CONVERTED" selected="${currentFilter == ru.mentee.power.crm.model.LeadStatus.CONVERTED}">
+                <option value="CONVERTED" selected="${status == ru.mentee.power.crm.model.LeadStatus.CONVERTED}">
                     Закрыт (успешно)
                 </option>
             </select>
@@ -45,12 +45,6 @@
             + Добавить лида
         </a>
     </div>
-
-
-    @if(currentFilter != null)
-        <p class="text-sm text-gray-600 mb-2">Показаны лиды со статусом: ${currentFilter}</p>
-    @endif
-
 
     <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-2xl font-bold mb-4">Lead List</h2>
