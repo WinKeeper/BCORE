@@ -6,6 +6,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -84,6 +85,23 @@ public class LeadService {
 
   public Optional<Lead> findByEmail(String email) {
     return repository.findByEmail(email);
+  }
+
+  public List<Lead> findLeads(String search, LeadStatus status) {
+    Stream<Lead> stream = repository.findAll().stream();
+    if (search != null && !search.isBlank()) {
+      String lower = search.toLowerCase();
+      stream = stream.
+          filter(lead ->
+              lead.email().toLowerCase().contains(lower) ||
+                  lead.company().toLowerCase().contains(lower));
+    }
+
+    if (status != null) {
+      stream = stream.filter(lead -> lead.status() == status);
+    }
+
+    return stream.collect(Collectors.toList());
   }
 
   @PostConstruct

@@ -33,7 +33,6 @@ public class LeadController {
     return "Spring Boot CRM is running! Bean created: " + leadService.findAll().size() + " leads.";
   }
 
-
   @GetMapping("/leads/new")
   public String showCreateForm(Model model) {
     model.addAttribute("lead", new Lead(null, "", "",
@@ -49,13 +48,16 @@ public class LeadController {
   }
 
   @GetMapping("/leads")
-  public String showLeads(@RequestParam(required = false) LeadStatus status, Model model) {
-    List<Lead> leads = (status == null)
-        ? leadService.findAll()
-        : leadService.findByStatus(status);
+  public String showLeads(@RequestParam(required = false) String search,
+                          @RequestParam(required = false) LeadStatus status,
+                          Model model) {
+
+    List<Lead> leads = leadService.findLeads(search, status);
 
     model.addAttribute("leads", leads);
-    model.addAttribute("currentFilter", status);
+    model.addAttribute("status", status);
+    model.addAttribute("search", search != null ? search : "");
+
     return "leads/list";
   }
 
