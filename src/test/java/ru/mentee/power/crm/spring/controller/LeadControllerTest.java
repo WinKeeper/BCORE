@@ -22,6 +22,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.format.support.FormattingConversionService;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import ru.mentee.power.crm.model.Lead;
@@ -36,13 +37,16 @@ class LeadControllerTest {
   @BeforeEach
   void setUp() {
     leadService = mock(LeadService.class);
-    mockMvc = MockMvcBuilders.standaloneSetup(new LeadController(leadService)).build();
+    mockMvc = MockMvcBuilders
+        .standaloneSetup(new LeadController(leadService))
+        .setConversionService(new FormattingConversionService())
+        .build();
   }
 
   @Test
   @DisplayName("Should return leads list view with all leads")
   void shouldReturnLeadsListView() throws Exception {
-    when(leadService.findAll()).thenReturn(List.of(
+    when(leadService.findLeads(null, null)).thenReturn(List.of(
         new Lead(UUID.randomUUID(), "a@b.com", "+7123", "Corp", LeadStatus.NEW),
         new Lead(UUID.randomUUID(), "c@d.com", "+7456", "Inc", LeadStatus.NEW)
     ));
@@ -71,7 +75,7 @@ class LeadControllerTest {
   @Test
   @DisplayName("Should handle empty leads list")
   void shouldHandleEmptyList() throws Exception {
-    when(leadService.findAll()).thenReturn(List.of());
+    when(leadService.findLeads(null, null)).thenReturn(List.of());
 
     mockMvc.perform(get("/leads"))
         .andExpect(status().isOk())
@@ -158,7 +162,7 @@ class LeadControllerTest {
   }
 
   @Test
-  @DisplayName("Should return only leads with filtered email or comp")
+  @DisplayName("BCORE-23: Should return only leads with filtered email or comp")
   void shouldReturnFilteredListWhenFilterIsChoosen() throws Exception {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
@@ -183,7 +187,7 @@ class LeadControllerTest {
   }
 
   @Test
-  @DisplayName("Return only leads with choosen status")
+  @DisplayName("BCORE-23: Return only leads with choosen status")
   void shouldReturnLeadsWithChosenStatus() throws Exception {
     List<Lead> filtered = List.of(
         new Lead(UUID.randomUUID(), "NEW0@mail.ru", "+7900", "Company", LeadStatus.NEW),

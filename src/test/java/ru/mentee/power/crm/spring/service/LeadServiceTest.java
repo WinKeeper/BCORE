@@ -234,4 +234,29 @@ class LeadServiceTest {
     assertThat(result).allMatch(lead -> lead.status() == LeadStatus.NEW);
   }
 
+  @Test
+  @DisplayName("BCORE-23: Should return all leads when no filters given")
+  void shouldReturnAllLeadsWhenNoFilters() {
+    service.addLead("a@mail.ru", "+7900", "A", LeadStatus.NEW);
+    service.addLead("b@mail.ru", "+7901", "B", LeadStatus.CONTACTED);
+
+    List<Lead> result = service.findLeads(null, null);
+
+    assertThat(result).hasSize(2);
+  }
+
+  @Test
+  @DisplayName("BCORE-23: Should combine search and status filters")
+  void shouldFindLeadsBySearchAndStatus() {
+    service.addLead("test@mail.ru", "+7900", "TechCorp", LeadStatus.NEW);
+    service.addLead("test1@mail.ru", "+7901", "Other", LeadStatus.CONTACTED);
+    service.addLead("other@mail.ru", "+7902", "X", LeadStatus.NEW);
+
+    List<Lead> result = service.findLeads("test@mail.ru", LeadStatus.NEW);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.getFirst().email()).isEqualTo("test@mail.ru");
+    assertThat(result.getFirst().status()).isEqualTo(LeadStatus.NEW);
+  }
+
 }
