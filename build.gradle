@@ -31,6 +31,7 @@ repositories {
 }
 
 dependencies {
+    implementation "org.springframework.boot:spring-boot-starter-validation" // BCORE-24
     // Существующие Spring зависимости
     implementation "org.springframework.boot:spring-boot-starter-web" // BCORE-15
     implementation "gg.jte:jte-spring-boot-starter-4:${jteVersion}"
@@ -97,8 +98,8 @@ tasks.register('testReport') {
 
     doLast {
         java.awt.Desktop.getDesktop().browse(
-            jacocoTestReport.reports.html.outputLocation.get()
-                .file("index.html").asFile.toURI()
+                jacocoTestReport.reports.html.outputLocation.get()
+                        .file("index.html").asFile.toURI()
         )
     }
 }
