@@ -57,12 +57,31 @@ content = @`
                 <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
                     Status
                 </label>
-                <select id="status" name="status" required
+                <select
+                        id="status"
+                        name="status"
+                        required
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                    <option value="NEW" selected="${lead.status().name().equals("NEW")}">Новый лид</option>
-                    <option value="CONTACTED" selected="${lead.status().name().equals("CONTACTED")}">Связались</option>
-                    <option value="QUALIFIED" selected="${lead.status().name().equals("QUALIFIED")}">Целевой</option>
-                    <option value="CONVERTED" selected="${lead.status().name().equals("CONVERTED")}">Закрыт (успешно)</option>
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.NEW)
+                        <option value="NEW" selected>Новый лид</option>
+                    @else
+                        <option value="NEW">Новый лид</option>
+                    @endif
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.CONTACTED)
+                        <option value="CONTACTED" selected>Связались</option>
+                    @else
+                        <option value="CONTACTED">Связались</option>
+                    @endif
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.QUALIFIED)
+                        <option value="QUALIFIED" selected>Целевой</option>
+                    @else
+                        <option value="QUALIFIED">Целевой</option>
+                    @endif
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.CONVERTED)
+                        <option value="CONVERTED" selected>Закрыт (успешно)</option>
+                    @else
+                        <option value="CONVERTED">Закрыт (успешно)</option>
+                    @endif
                 </select>
             </div>
             <!-- Submit Button -->

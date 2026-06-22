@@ -93,8 +93,8 @@ public class LeadService {
       String lower = search.toLowerCase();
       stream = stream.
           filter(lead ->
-              lead.email().toLowerCase().contains(lower) ||
-                  lead.company().toLowerCase().contains(lower));
+              lead.email().toLowerCase().contains(lower)
+                  || lead.company().toLowerCase().contains(lower));
     }
 
     if (status != null) {
