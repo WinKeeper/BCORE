@@ -4,9 +4,12 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,16 +38,21 @@ public class LeadController {
 
   @GetMapping("/leads/new")
   public String showCreateForm(Model model) {
-    model.addAttribute("lead", new Lead(null, "", "",
-        "",
-        LeadStatus.NEW));
+    Lead empty = new Lead(null, "", "", "", LeadStatus.NEW);
+    model.addAttribute("lead", empty);
+    model.addAttribute("errors", new BeanPropertyBindingResult(empty, "lead"));
     return "leads/create";
   }
 
+
   @PostMapping("/leads")
-  public String createLead(@ModelAttribute Lead lead) {
+  public String createLead(@Valid @ModelAttribute Lead lead, BindingResult result, Model model) {
+    if (result.hasErrors()) {
+      model.addAttribute("errors", result);
+      return "leads/create";
+    }
     leadService.addLead(lead);
-    return ("redirect:/leads");
+    return "redirect:/leads";
   }
 
   @GetMapping("/leads")
@@ -64,13 +72,20 @@ public class LeadController {
   @GetMapping("/leads/{id}/edit")
   public String showEditForm(@PathVariable UUID id, Model model) {
     Lead lead = leadService.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found: " + id));
+        .orElseThrow(() ->
+            new ResponseStatusException(HttpStatus.NOT_FOUND, "Lead not found: " + id));
     model.addAttribute("lead", lead);
+    model.addAttribute("errors", new BeanPropertyBindingResult(lead, "lead"));
     return "spring/edit";
   }
 
   @PostMapping("/leads/{id}")
-  public String updateLead(@PathVariable UUID id, @ModelAttribute Lead lead) {
+  public String updateLead(@PathVariable UUID id, @Valid @ModelAttribute Lead lead,
+                           BindingResult result, Model model) {
+    if (result.hasErrors()) {
+      model.addAttribute("errors", result);
+      return "spring/edit";
+    }
     leadService.updateLead(id, lead);
     return ("redirect:/leads");
   }
@@ -84,5 +99,4 @@ public class LeadController {
     }
     return ("redirect:/leads");
   }
-
 }

@@ -1,4 +1,5 @@
 @param ru.mentee.power.crm.model.Lead lead
+@param org.springframework.validation.BindingResult errors
 
 @template.layout.main(
 content = @`
@@ -18,9 +19,12 @@ content = @`
                         name="email"
                         value="${lead.email()}"
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("email") ? "border-red-500" : "border-gray-300"}"
                         placeholder="example@company.com"
                 />
+                @if(errors.hasFieldErrors("email"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("email").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Telephone -->
             <div>
@@ -33,9 +37,12 @@ content = @`
                         name="phone"
                         value="${lead.phone()}"
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("phone") ? "border-red-500" : "border-gray-300"}"
                         placeholder="+7 922 222 33 55"
                 />
+                @if(errors.hasFieldErrors("phone"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("phone").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Company -->
             <div>
@@ -48,22 +55,47 @@ content = @`
                         name="company"
                         value="${lead.company()}"
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("company") ? "border-red-500" : "border-gray-300"}"
                         placeholder="example org"
                 />
+                @if(errors.hasFieldErrors("company"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("company").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Select for status -->
             <div>
                 <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
                     Status
                 </label>
-                <select id="status" name="status" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                    <option value="NEW" selected="${lead.status().name().equals("NEW")}">Новый лид</option>
-                    <option value="CONTACTED" selected="${lead.status().name().equals("CONTACTED")}">Связались</option>
-                    <option value="QUALIFIED" selected="${lead.status().name().equals("QUALIFIED")}">Целевой</option>
-                    <option value="CONVERTED" selected="${lead.status().name().equals("CONVERTED")}">Закрыт (успешно)</option>
+                <select
+                        id="status"
+                        name="status"
+                        required
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("status") ? "border-red-500" : "border-gray-300"}">
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.NEW)
+                        <option value="NEW" selected>Новый лид</option>
+                    @else
+                        <option value="NEW">Новый лид</option>
+                    @endif
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.CONTACTED)
+                        <option value="CONTACTED" selected>Связались</option>
+                    @else
+                        <option value="CONTACTED">Связались</option>
+                    @endif
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.QUALIFIED)
+                        <option value="QUALIFIED" selected>Целевой</option>
+                    @else
+                        <option value="QUALIFIED">Целевой</option>
+                    @endif
+                    @if(lead.status() == ru.mentee.power.crm.model.LeadStatus.CONVERTED)
+                        <option value="CONVERTED" selected>Закрыт (успешно)</option>
+                    @else
+                        <option value="CONVERTED">Закрыт (успешно)</option>
+                    @endif
                 </select>
+                @if(errors.hasFieldErrors("status"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("status").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Submit Button -->
             <button

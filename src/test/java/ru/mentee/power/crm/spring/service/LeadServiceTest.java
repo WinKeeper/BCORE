@@ -68,8 +68,10 @@ class LeadServiceTest {
   @DisplayName("Should find all leads")
   void shouldFindAllLeads() {
     // Given
-    service.addLead("one@example.com", "+71234567890", "Company 1", LeadStatus.NEW);
-    service.addLead("two@example.com", "+79876543210", "Company 2", LeadStatus.CONTACTED);
+    service.addLead("one@example.com", "+71234567890", "Company 1"
+        , LeadStatus.NEW);
+    service.addLead("two@example.com", "+79876543210", "Company 2"
+        , LeadStatus.CONTACTED);
 
     // When
     List<Lead> result = service.findAll();
@@ -82,7 +84,8 @@ class LeadServiceTest {
   @DisplayName("Should find lead by id")
   void shouldFindLeadById() {
     // Given
-    Lead created = service.addLead("find@example.com", "+71234567890", "Company", LeadStatus.NEW);
+    Lead created = service.addLead("find@example.com", "+71234567890"
+        , "Company", LeadStatus.NEW);
 
     // When
     Optional<Lead> result = service.findById(created.id());
@@ -96,7 +99,8 @@ class LeadServiceTest {
   @DisplayName("Should find lead by email")
   void shouldFindLeadByEmail() {
     // Given
-    service.addLead("search@example.com", "+71234567890", "Company", LeadStatus.NEW);
+    service.addLead("search@example.com", "+71234567890", "Company"
+        , LeadStatus.NEW);
 
     // When
     Optional<Lead> result = service.findByEmail("search@example.com");
@@ -118,13 +122,16 @@ class LeadServiceTest {
 
   private void seedStandardLeads() {
     for (int i = 0; i < 3; i++) {
-      service.addLead("new" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.NEW);
+      service.addLead("new" + i + "@mail.ru", "+7900" + i, "Corp #" + i
+          , LeadStatus.NEW);
     }
     for (int i = 0; i < 5; i++) {
-      service.addLead("contacted" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.CONTACTED);
+      service.addLead("contacted" + i + "@mail.ru", "+7900" + i, "Corp #" + i
+          , LeadStatus.CONTACTED);
     }
     for (int i = 0; i < 2; i++) {
-      service.addLead("qualified" + i + "@mail.ru", "+7900" + i, "Corp #" + i, LeadStatus.QUALIFIED);
+      service.addLead("qualified" + i + "@mail.ru", "+7900" + i, "Corp #" + i
+          , LeadStatus.QUALIFIED);
     }
   }
 
@@ -163,10 +170,12 @@ class LeadServiceTest {
   @Test
   @DisplayName("Should update all fields of existing lead")
   void shouldUpdateAllFields() {
-    Lead created = service.addLead("old@mail.ru", "+7900", "OldCorp", LeadStatus.NEW);
+    Lead created = service.addLead("old@mail.ru", "+7900", "OldCorp"
+        , LeadStatus.NEW);
 
     service.updateLead(created.id(),
-        new Lead(null, "new@mail.ru", "+7999", "NewCorp", LeadStatus.CONTACTED));
+        new Lead(null, "new@mail.ru", "+7999", "NewCorp"
+            , LeadStatus.CONTACTED));
 
     Lead updated = service.findById(created.id()).orElseThrow();
     assertThat(updated.email()).isEqualTo("new@mail.ru");
@@ -180,10 +189,12 @@ class LeadServiceTest {
   void shouldFreeOldEmailAfterUpdate() {
     service.addLead("old@mail.ru", "+7900", "A", LeadStatus.NEW);
 
-    Lead updated = new Lead(null, "new@mail.ru", "+7900", "A", LeadStatus.NEW);
+    Lead updated = new Lead(null, "new@mail.ru", "+7900", "A"
+        , LeadStatus.NEW);
     service.updateLead(service.findByEmail("old@mail.ru").orElseThrow().id(), updated);
 
-    assertThatCode(() -> service.addLead("old@mail.ru", "+7900", "B", LeadStatus.NEW))
+    assertThatCode(() -> service.addLead("old@mail.ru", "+7900", "B"
+        , LeadStatus.NEW))
         .doesNotThrowAnyException();
   }
 
@@ -191,10 +202,12 @@ class LeadServiceTest {
   @DisplayName("Should throw when new email is already taken by another lead")
   void shouldThrowWhenEmailAlreadyTaken() {
     service.addLead("taken@mail.ru", "+7900", "Other", LeadStatus.NEW);
-    Lead lead = service.addLead("mine@mail.ru", "+7900", "Mine", LeadStatus.NEW);
+    Lead lead = service.addLead("mine@mail.ru", "+7900", "Mine"
+        , LeadStatus.NEW);
 
     assertThatThrownBy(() -> service.updateLead(lead.id(),
-        new Lead(null, "taken@mail.ru", "+7900", "Mine", LeadStatus.NEW)))
+        new Lead(null, "taken@mail.ru", "+7900", "Mine"
+            , LeadStatus.NEW)))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Email");
   }
@@ -202,10 +215,12 @@ class LeadServiceTest {
   @Test
   @DisplayName("Should update lead even when email stays the same")
   void shouldUpdateWhenEmailDoesNotChange() {
-    Lead lead = service.addLead("same@mail.ru", "+7900", "OldCorp", LeadStatus.NEW);
+    Lead lead = service.addLead("same@mail.ru", "+7900", "OldCorp"
+        , LeadStatus.NEW);
 
     service.updateLead(lead.id(),
-        new Lead(null, "same@mail.ru", "+7999", "NewCorp", LeadStatus.QUALIFIED));
+        new Lead(null, "same@mail.ru", "+7999", "NewCorp"
+            , LeadStatus.QUALIFIED));
 
     Lead updated = service.findById(lead.id()).orElseThrow();
     assertThat(updated.email()).isEqualTo("same@mail.ru");
