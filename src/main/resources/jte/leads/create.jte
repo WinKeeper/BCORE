@@ -1,4 +1,5 @@
 @param ru.mentee.power.crm.model.Lead lead
+@param org.springframework.validation.BindingResult errors
 
 @template.layout.main(
 content = @`
@@ -15,10 +16,14 @@ content = @`
                         type="email"
                         id="email"
                         name="email"
+                        value="${lead.email()}"
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("email") ? "border-red-500" : "border-gray-300"}"
                         placeholder="example@company.com"
                 />
+                @if(errors.hasFieldErrors("email"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("email").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Telephone -->
             <div>
@@ -26,13 +31,17 @@ content = @`
                     Telephone
                 </label>
                 <input
-                        type="phone"
+                        type="tel"
                         id="phone"
                         name="phone"
+                        value="${lead.phone()}"
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("phone") ? "border-red-500" : "border-gray-300"}"
                         placeholder="+7 922 222 33 55"
                 />
+                @if(errors.hasFieldErrors("phone"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("phone").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Company -->
             <div>
@@ -40,13 +49,17 @@ content = @`
                     Company
                 </label>
                 <input
-                        type="company"
+                        type="text"
                         id="company"
                         name="company"
+                        value="${lead.company()}"
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("company") ? "border-red-500" : "border-gray-300"}"
                         placeholder="example org"
                 />
+                @if(errors.hasFieldErrors("company"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("company").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Select for status -->
             <div>
@@ -54,14 +67,16 @@ content = @`
                     Status
                 </label>
                 <select id="status" name="status" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${errors.hasFieldErrors("status") ? "border-red-500" : "border-gray-300"}">
                     <option value="" disabled selected>Выберите статус</option>
                     <option value="NEW">Новый лид</option>
                     <option value="CONTACTED">Связались</option>
                     <option value="QUALIFIED">Целевой</option>
                     <option value="CONVERTED">Закрыт (успешно)</option>
                 </select>
-
+                @if(errors.hasFieldErrors("status"))
+                    <p class="text-red-600 text-sm mt-1">${errors.getFieldError("status").getDefaultMessage()}</p>
+                @endif
             </div>
             <!-- Submit Button -->
             <button

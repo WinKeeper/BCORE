@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.format.support.FormattingConversionService;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import ru.mentee.power.crm.model.Lead;
 import ru.mentee.power.crm.model.LeadStatus;
 import ru.mentee.power.crm.spring.service.LeadService;
@@ -40,6 +41,7 @@ class LeadControllerTest {
     mockMvc = MockMvcBuilders
         .standaloneSetup(new LeadController(leadService))
         .setConversionService(new FormattingConversionService())
+        .setValidator(new LocalValidatorFactoryBean())
         .build();
   }
 
@@ -153,7 +155,7 @@ class LeadControllerTest {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
     List<Lead> filtered = List.of(
-        new Lead(id1, "NEW0@mail.ru", "+7900", "Company", LeadStatus.NEW),
+        new Lead(id1, "NEW0@mail.ru", "+7900123456", "Company", LeadStatus.NEW),
         new Lead(id2, "NEW1@mail.ru", "+7901", "Company", LeadStatus.NEW)
     );
 
@@ -176,7 +178,7 @@ class LeadControllerTest {
   @DisplayName("Should filter leads by status")
   void shouldFilterByStatus() throws Exception {
     List<Lead> filtered = List.of(
-        new Lead(UUID.randomUUID(), "NEW0@mail.ru", "+7900", "Company", LeadStatus.NEW),
+        new Lead(UUID.randomUUID(), "NEW0@mail.ru", "+7900123456", "Company", LeadStatus.NEW),
         new Lead(UUID.randomUUID(), "NEW1@mail.ru", "+7901", "Company", LeadStatus.NEW),
         new Lead(UUID.randomUUID(), "QUALIFIED0@mail.ru", "+7901", "Company", LeadStatus.QUALIFIED),
         new Lead(UUID.randomUUID(), "CONVERTED0@mail.ru", "+7901", "Company", LeadStatus.CONVERTED)
@@ -195,6 +197,61 @@ class LeadControllerTest {
         );
 
     verify(leadService).findLeads("", LeadStatus.NEW);
+  }
+
+  @Test
+  @DisplayName("Should return form with errors when email is blank")
+  void shouldReturnFormWithErrorsWhenEmailBlank() throws Exception {
+    mockMvc.perform(post("/leads")
+            .param("email", "")
+            .param("phone", "+7900123456")
+            .param("company", "Corp")
+            .param("status", "NEW"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("leads/create"))
+        .andExpect(model().attributeHasFieldErrors("lead", "email"));
+  }
+
+  @Test
+  @DisplayName("Should return form with errors when email format is invalid")
+  void shouldReturnFormWithErrorsWhenEmailInvalid() throws Exception {
+    mockMvc.perform(post("/leads")
+            .param("email", "not-an-email")
+            .param("phone", "+7900123456")
+            .param("company", "Corp")
+            .param("status", "NEW"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("leads/create"))
+        .andExpect(model().attributeHasFieldErrors("lead", "email"));
+  }
+
+  @Test
+  @DisplayName("Should redirect when all fields are valid")
+  void shouldRedirectWhenAllFieldsAreValid() throws Exception {
+    mockMvc.perform(post("/leads")
+            .param("email", "valid@mail.ru")
+            .param("phone", "+7900123456")
+            .param("company", "Corp")
+            .param("status", "NEW"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/leads"));
+
+    verify(leadService).addLead(any());
+  }
+
+  @Test
+  @DisplayName("Should return edit form with errors when update has blank field")
+  void shouldReturnEditFormWithErrorsOnInvalidUpdate() throws Exception {
+    UUID id = UUID.randomUUID();
+
+    mockMvc.perform(post("/leads/{id}", id)
+            .param("email", "")
+            .param("phone", "+7900123456")
+            .param("company", "Corp")
+            .param("status", "NEW"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("spring/edit"))
+        .andExpect(model().attributeHasFieldErrors("lead", "email"));
   }
 
 }

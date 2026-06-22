@@ -3780,6 +3780,181 @@ public List<Lead> findByStatus(LeadStatus status) {
 - Строить цепочки `filter() → map()` для сложных операций
 - Использовать method references (`Lead::email`) для читаемости
 
+## BCORE-24: Валидация формы
+
+### Суть
+
+Аннотация `@Valid` перед параметром метода контроллера запускает валидацию объекта.
+Spring автоматически создаёт экземпляр валидатора, применяет все аннотации из класса
+и собирает ошибки в объект `BindingResult`.
+
+**Важно:** `BindingResult` должен идти **сразу после** валидируемого параметра.
+`method(@Valid Lead lead, BindingResult result)` ✅
+`method(@Valid Lead lead, Model model, BindingResult result)` ❌ — Spring выбросит исключение.
+
+Проверка `result.hasErrors()` возвращает `true`, если хотя бы одна аннотация не прошла
+валидацию. Тогда контроллер возвращает форму обратно с сообщениями об ошибках.
+Если ошибок нет — бизнес-логика и редирект.
+
+Типичная ошибка — не проверять `hasErrors()`. Валидация запустилась, но результат
+проигнорирован → невалидные данные уходят в сервис.
+
+### Код контроллера
+
+```java
+@PostMapping("/leads")
+public String createLead(@Valid @ModelAttribute Lead lead,
+                         BindingResult result, Model model) {
+    if (result.hasErrors()) {
+        return "leads/create";  // форма заново, ошибки в BindingResult
+    }
+    leadService.addLead(lead);
+    return "redirect:/leads";
+}
+```
+
+### Схема потока при ошибке
+
+```
+POST /leads (email="", company="X")
+  │
+  ├─► @Valid проверяет @NotBlank(email) → ошибка
+  ├─► result.hasErrors() → true
+  └─► return "leads/create" (форма заново, БЕЗ редиректа)
+       │
+       ▼
+     create.jte — поля предзаполнены тем, что ввёл юзер
+     ошибки доступны в BindingResult
+```
+
+### Для updateLead — то же самое
+
+```java
+@PostMapping("/leads/{id}")
+public String updateLead(@PathVariable UUID id,
+                         @Valid @ModelAttribute Lead lead,
+                         BindingResult result, Model model) {
+    if (result.hasErrors()) {
+        return "spring/edit";
+    }
+    leadService.updateLead(id, lead);
+    return "redirect:/leads";
+}
+```
+
+### 📚 Теория
+
+#### Bean Validation API (JSR 380) — стандарт декларативной валидации
+
+Bean Validation (JSR 380) — это стандарт Java для декларативной валидации объектов через аннотации. Вместо написания if-проверок в каждом методе, вы размечаете поля класса аннотациями вроде `@NotBlank`, `@Email`, `@Size`, а фреймворк (Hibernate Validator — референсная реализация) автоматически проверяет данные.
+
+Ключевое преимущество — разделение concerns. Модель (`Lead`) декларирует правила валидности данных. Контроллер только запускает валидацию через `@Valid`. Сообщения об ошибках настраиваются отдельно в `messages.properties`. Это делает код чище и проще тестировать: можно проверить валидацию модели без поднятия Spring контекста.
+
+Bean Validation интегрирована в Spring Boot из коробки через стартер `spring-boot-starter-validation`. Зависимость включает Hibernate Validator 8.x и Jakarta Validation API 3.x (пакет `jakarta.validation`, не `javax.validation` — переход произошёл в Jakarta EE 9). Spring автоматически подключает валидатор, не требуя дополнительной конфигурации.
+
+**Что изменится в нашем коде:** Зависимость `spring-boot-starter-validation` уже есть в `build.gradle`. `Lead.java` уже размечен аннотациями — менять не нужно.
+
+#### Основные аннотации Bean Validation
+
+**`@NotNull` vs `@NotBlank`:** `@NotNull` запрещает `null`, но разрешает пустые строки `""`. Для строк это бесполезно: пользователь может отправить пустое поле, и валидация пройдёт. Используйте `@NotBlank` для строк — она проверяет что строка не `null`, не пустая и содержит хотя бы один не-пробельный символ.
+
+**`@Email`** проверяет формат email согласно RFC 5322 (упрощённому). Она пропустит `"user@domain.com"` и отклонит `"user@domain"` или `"userdomain.com"`. Встроенная реализация не проверяет существование домена — для этого нужна внешняя валидация через DNS lookup.
+
+**`@Size(min, max)`** ограничивает длину строк, коллекций и массивов. Пример: `@Size(min=2, max=100)` для имени запретит однобуквенные имена и слишком длинные строки. Для чисел используйте `@Min` и `@Max`.
+
+**`@Pattern(regexp)`** позволяет задать кастомное регулярное выражение. Полезно для номеров телефонов, ИНН, почтовых кодов. Пример: `@Pattern(regexp="\\+?[0-9]{10,15}")` для международного формата телефона.
+
+Каждая аннотация принимает параметр `message` для кастомизации текста ошибки: `@NotBlank(message = "Имя обязательно")`. Если параметр не указан, используется дефолтное сообщение из библиотеки (на английском).
+
+**Что изменится в нашем коде:** `Lead.java` уже содержит `@NotBlank`, `@Email`, `@Pattern`, `@Size`, `@NotNull` с русскими message. Аннотации уже на месте — менять не нужно.
+
+#### BindingResult: работа с ошибками валидации
+
+`BindingResult` содержит список объектов `FieldError`, по одному на каждое невалидное поле. Метод `result.getFieldErrors()` возвращает `List<FieldError>`, где каждый элемент имеет:
+
+- `field` — имя поля (например, `"email"`)
+- `defaultMessage` — текст ошибки из аннотации
+- `rejectedValue` — значение, которое не прошло валидацию
+
+Можно добавлять кастомные ошибки вручную: `result.rejectValue("email", "error.duplicate", "Email уже существует")`. Это полезно для бизнес-валидаций, которые нельзя выразить аннотациями (проверка дубликатов в БД).
+
+Метод `result.getAllErrors()` возвращает как field errors, так и global errors (не привязанные к конкретному полю). Global errors добавляются через `result.reject("error.code", "Общая ошибка")`.
+
+**Что изменится в нашем коде:** В `create.jte` и `edit.jte` добавить проверки `errors.hasFieldErrors('email')` и красную рамку + текст ошибки под каждым полем.
+
+#### Отображение ошибок валидации в JTE
+
+Дизайн-паттерн для отображения ошибок: красная рамка вокруг невалидного поля + текст ошибки под ним. Tailwind CSS классы: `border-red-500` для рамки, `text-red-600 text-sm mt-1` для текста.
+
+Пример структуры в JTE:
+
+```html
+<div class="mb-4">
+  <label for="email">Email</label>
+  <input type="email" name="email" value="${lead.email()}"
+         class="${errors.hasFieldErrors('email') ? 'border-red-500' : 'border-gray-300'} ...">
+  @if(errors.hasFieldErrors('email'))
+    <p class="text-red-600 text-sm mt-1">${errors.getFieldError('email').defaultMessage}</p>
+  @endif
+</div>
+```
+
+Используется тернарный оператор для условного класса: если ошибка есть — красная рамка, если нет — обычная серая. Это даёт визуальную обратную связь без JavaScript.
+
+Для глобальных ошибок (не привязанных к полю) создайте блок сверху формы:
+
+```html
+@if(errors.hasGlobalErrors())
+  <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+    @for(error : errors.globalErrors)
+      <p>${error.defaultMessage}</p>
+    @endfor
+  </div>
+@endif
+```
+
+**Что изменится в нашем коде:** В `create.jte` и `edit.jte` — добавить `@param errors` в шапку, тернарный оператор для класса рамки, `@if(errors.hasFieldErrors(...))` для текста ошибки.
+
+#### Клиентская vs серверная валидация
+
+HTML5 предоставляет встроенную клиентскую валидацию через атрибуты: `required`, `type="email"`, `minlength`, `maxlength`. Браузер блокирует submit формы до исправления ошибок. Это улучшает UX — пользователь видит ошибки мгновенно, без обращения к серверу.
+
+Но клиентская валидация легко обходится: отключение JavaScript, отправка запроса через curl или Postman, редактирование DOM в DevTools. Злоумышленник может отправить невалидные данные напрямую.
+
+Серверная валидация — **обязательная** линия защиты. Даже если клиентская валидация пройдена, сервер должен проверить данные повторно. Правило: **никогда не доверяйте клиенту**. Клиентская валидация — для UX, серверная — для безопасности и целостности данных.
+
+**Что изменится в нашем коде:** HTML5-атрибуты (`required`, `type="email"`) уже есть в шаблонах — оставить. Серверная валидация добавляется через `@Valid` в контроллере — это основное изменение BCORE-24.
+
+#### Интернационализация сообщений валидации
+
+Для многоязычных приложений сообщения валидации выносятся в `src/main/resources/messages.properties`:
+
+```properties
+lead.name.notblank=Имя обязательно
+lead.email.email=Некорректный формат email
+```
+
+В аннотации используется ключ: `@NotBlank(message = "{lead.name.notblank}")`. Spring автоматически подставит значение из файла в зависимости от локали пользователя (header `Accept-Language`).
+
+Для английской версии создаётся `messages_en.properties`:
+
+```properties
+lead.name.notblank=Name is required
+lead.email.email=Invalid email format
+```
+
+Bean Validation поддерживает параметризацию сообщений: `{min}`, `{max}` автоматически заменяются на значения из аннотации `@Size(min=2, max=100)`.
+
+**Что изменится в нашем коде:** Пока не внедряем — оставить `message = "текст"` в аннотациях `Lead.java`. В будущем — вынести в `messages.properties` для поддержки нескольких языков.
+
+### Ключевые навыки BCORE-24
+
+- Применять `@Valid` для запуска Jakarta Bean Validation
+- Располагать `BindingResult` сразу после валидируемого параметра
+- Проверять `hasErrors()` перед бизнес-логикой
+- Возвращать форму обратно при ошибках (без редиректа)
+- Понимать что `@ModelAttribute` + `@Valid` + `BindingResult` — связка из трёх элементов
+
 ---
 
 ### Функциональность
