@@ -16,6 +16,7 @@ public record Lead(
     @Email(message = "Некорректный формат email")
     String email,
 
+    @NotBlank(message = "Телефон обязателен")
     @Pattern(regexp = "^\\+?[0-9\\-\\s]{6,20}$", message = "Некорректный номер телефона")
     String phone,
 
