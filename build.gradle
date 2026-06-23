@@ -31,7 +31,6 @@ repositories {
 }
 
 dependencies {
-    implementation "org.springframework.boot:spring-boot-starter-validation" // BCORE-24
     // Существующие Spring зависимости
     implementation "org.springframework.boot:spring-boot-starter-web" // BCORE-15
     implementation "org.springframework.boot:spring-boot-starter-validation" // BCORE-24
